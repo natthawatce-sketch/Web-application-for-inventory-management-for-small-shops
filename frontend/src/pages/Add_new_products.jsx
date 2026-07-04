@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
+import { useNavigate } from 'react-router-dom';
 
 function Add_new_products() {
   const [barcode, setBarcode] = useState("");
@@ -9,6 +10,7 @@ function Add_new_products() {
   const [unit, setUnit] = useState("");
   const [imageFile, setImageFile] = useState(null); 
   const [categories, setCategories] = useState([]); // สำหรับเก็บหมวดหมู่จากหลังบ้าน
+  const navigate = useNavigate();
 
   // รวม useEffect สำหรับดึงหมวดหมู่สินค้า และตั้งค่าสแกนเนอร์
   useEffect(() => {
@@ -97,9 +99,19 @@ function Add_new_products() {
     <div className="h-screen w-full overflow-hidden bg-white ">
       <div className='flex items-center bg-blue-900 h-16 w-auto   '>
         <div className='w-1/2'>
-          <button className='px-4 py-2 text-white bg-green-500 hover:bg-green-600 rounded ml-5'>
-              ย้อนกลับ
-          </button>
+          {/* ซ้าย: ปุ่มย้อนกลับ */}
+        <div className="m-5 flex-1 flex justify-start">
+            <button 
+            onClick={() => navigate('/ManageProducts')}
+            className="flex items-center gap-1.5 sm:gap-2 text-slate-500 hover:text-blue-600 font-semibold transition-colors bg-slate-50 px-3 sm:px-4 py-2 rounded-lg border border-slate-200 shadow-sm text-xs sm:text-sm whitespace-nowrap"
+            >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            <span className="hidden sm:inline">กลับหน้าหลัก</span>
+            <span className="inline sm:hidden">กลับ</span>
+            </button>
+        </div>
         </div>
         <div className='px-auto py-2 flex w-2/3 items-center xl:pl-10'>
           <p className=' text-white text-lg py-2'>เพิ่มสินค้าใหม่</p>

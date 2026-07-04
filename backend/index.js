@@ -346,6 +346,246 @@ app.post('/api/products', upload.single('image'), async (req, res) => {
 });
 
 // ==========================================
+// 🛠️ API สำหรับแก้ไขข้อมูลสินค้า (รองรับรูปภาพ) - Method: PUT
+// ==========================================
+app.put('/api/products/:id', upload.single('image'), async (req, res) => {
+    try {
+        const productId = req.params.id;
+        const { product_name, category_id, barcode, unit, price, product_status } = req.body; 
+        
+        // บังคับค่าเริ่มต้นป้องกัน null
+        const final_status = product_status || 'พร้อมขาย';
+
+        let sql = "";
+        let values = [];
+
+        // กรณีที่ 1: มีการอัปโหลดรูปภาพใหม่
+        if (req.file) {
+            sql = `
+                UPDATE products 
+                SET product_name = ?, category_id = ?, barcode = ?, unit = ?, price = ?, product_status = ?, image = ? 
+                WHERE product_id = ?
+            `;
+            values = [product_name, category_id, barcode, unit, price, final_status, req.file.filename, productId];
+        } 
+        // กรณีที่ 2: ไม่ได้เปลี่ยนรูปภาพ
+        else {
+            sql = `
+                UPDATE products 
+                SET product_name = ?, category_id = ?, barcode = ?, unit = ?, price = ?, product_status = ? 
+                WHERE product_id = ?
+            `;
+            values = [product_name, category_id, barcode, unit, price, final_status, productId];
+        }
+
+        // 🌟 แก้ไข: บังคับให้หลังบ้านทำงานจนเสร็จ แล้วค่อยตอบกลับ (ป้องการหลุด)
+        db.query(sql, values, (err, result) => {
+            if (err) {
+                console.error('Error updating product:', err);
+                if (err.code === 'ER_DUP_ENTRY') {
+                    // ส่งสถานะ 400 ถ้าบาร์โค้ดซ้ำ
+                    return res.status(400).json({ error: 'บาร์โค้ดนี้มีอยู่ในระบบแล้ว' });
+                }
+                // ส่งสถานะ 500 ถ้าพังจุดอื่น
+                return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการแก้ไขข้อมูลสินค้า' });
+            }
+            
+            // 🌟 สำคัญที่สุด: ส่งสถานะ 200 (สำเร็จ) กลับไปให้หน้าบ้านรับรู้
+            return res.status(200).json({ message: 'แก้ไขข้อมูลสินค้าสำเร็จ!' });
+        });
+
+    } catch (error) {
+        console.error("Catch Error:", error);
+        return res.status(500).json({ error: 'ระบบหลังบ้านเกิดข้อผิดพลาด' });
+    }
+});
+
+// ==========================================
+// 🛠️ API สำหรับลบสินค้า (Delete Product) - Method: DELETE
+// ==========================================
+app.delete('/api/products/:id', (req, res) => {
+    const productId = req.params.id;
+    const sql = 'DELETE FROM products WHERE product_id = ?';
+
+    db.query(sql, [productId], (err, result) => {
+        if (err) {
+            console.error('Error deleting product:', err);
+            
+            // 💡 ดัก Error สำคัญ: กรณีสินค้านี้เคยถูกรับเข้าสต็อก หรือเคยขายไปแล้ว (ติด Foreign Key)
+            if (err.code === 'ER_ROW_IS_REFERENCED_2') {
+                return res.status(400).json({ 
+                    error: 'ไม่สามารถลบสินค้านี้ได้ เนื่องจากมีประวัติการขายหรือสต็อกผูกอยู่ แนะนำให้เปลี่ยนสถานะเป็น "สินค้าหมด/เลิกขาย" แทนครับ' 
+                });
+            }
+            return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการลบสินค้า' });
+        }
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'ไม่พบสินค้าที่ต้องการลบในระบบ' });
+        }
+        
+        res.json({ message: 'ลบสินค้าสำเร็จเรียบร้อย!' });
+    });
+});
+
+// ==========================================
+// 📦 API สำหรับดึงประวัติการรับสินค้า (GET)
+// ==========================================
+app.get('/api/stock-in', async (req, res) => {
+    try {
+        const sql = `
+            SELECT s.stock_in_id, s.product_id, p.product_name, c.category_name as category, 
+                   s.quantity, s.cost_price, s.expiration_date, s.received_date, 
+                   u.username as added_by
+            FROM stock_in s
+            LEFT JOIN products p ON s.product_id = p.product_id
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN users u ON s.user_id = u.user_id
+            ORDER BY s.received_date DESC
+        `;
+        
+        const [results] = await db.query(sql);
+        return res.status(200).json(results);
+
+    } catch (error) {
+        console.error("Error fetching stock in:", error);
+        return res.status(500).json({ error: "Server Error" });
+    }
+});
+
+// ==========================================
+// 🛠️ API สำหรับแก้ไขประวัติการรับสินค้า (PUT)
+// ==========================================
+app.put('/api/stock-in/:id', async (req, res) => {
+    try {
+        const stockInId = req.params.id;
+        const { quantity, cost_price, expiration_date } = req.body; // ลบ mfg_date ออกจากบรรทัดนี้
+
+        const final_exp = expiration_date ? expiration_date : null;
+
+        // 1. ตรวจสอบยอดจำนวนของเก่าด้วย await
+        const [results] = await db.query(`SELECT quantity, product_id FROM stock_in WHERE stock_in_id = ?`, [stockInId]);
+        
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'ไม่พบล็อตสินค้าประวัตินี้' });
+        }
+
+        const oldQuantity = results[0].quantity;
+        const productId = results[0].product_id;
+        const difference = quantity - oldQuantity; 
+
+        // 2. สั่งอัปเดตข้อมูลล็อตใหม่ลงตาราง stock_in ด้วย await (ลบ mfg_date = ? ออก)
+        const updateSql = `UPDATE stock_in SET quantity = ?, cost_price = ?, expiration_date = ? WHERE stock_in_id = ?`;
+        await db.query(updateSql, [quantity, cost_price, final_exp, stockInId]);
+
+        // 3. ปรับสมดุลสต็อกคงเหลือรวมในตาราง inventory
+        if (difference !== 0) {
+            await db.query(`UPDATE inventory SET quantity = quantity + ? WHERE product_id = ?`, [difference, productId]);
+        }
+
+        return res.status(200).json({ message: 'แก้ไขข้อมูลสำเร็จ!' });
+
+    } catch (error) {
+        console.error("Error updating stock in:", error);
+        return res.status(500).json({ error: 'เซิร์ฟเวอร์ขัดข้อง' });
+    }
+});
+
+// ==========================================
+// 🗑️ API สำหรับลบสินค้า (Delete Product) - Method: DELETE
+// ==========================================
+app.delete('/api/products/:id', async (req, res) => {
+    try {
+        const productId = req.params.id;
+        const sql = 'DELETE FROM products WHERE product_id = ?';
+
+        // 🌟 เปลี่ยนมาใช้ await 
+        const [result] = await db.query(sql, [productId]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'ไม่พบสินค้าที่ต้องการลบในระบบ' });
+        }
+        
+        return res.status(200).json({ message: 'ลบสินค้าสำเร็จเรียบร้อย!' });
+
+    } catch (error) {
+        console.error('Error deleting product:', error);
+        // 💡 ดัก Error สำคัญ: กรณีสินค้านี้เคยถูกรับเข้าสต็อก ติด Foreign Key
+        if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+            return res.status(400).json({ 
+                error: 'ไม่สามารถลบสินค้านี้ได้ เนื่องจากมีประวัติผูกอยู่ แนะนำให้เปลี่ยนสถานะเป็น "สินค้าหมด/เลิกขาย" แทนครับ' 
+            });
+        }
+        return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการลบสินค้า' });
+    }
+});
+
+// ==========================================
+// 🛠️ API ค้นหาข้อมูลสินค้าด้วยบาร์โค้ด (สำหรับหน้า Stock In)
+// ==========================================
+app.get('/api/products/barcode/:barcode', (req, res) => {
+    const barcode = req.params.barcode;
+    const sql = 'SELECT * FROM products WHERE barcode = ?';
+    
+    db.query(sql, [barcode], (err, results) => {
+        if (err) {
+            console.error('Error finding product:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        if (results.length > 0) {
+            // ส่งข้อมูลกลับไปถ้าเจอบาร์โค้ด
+            res.status(200).json(results[0]);
+        } else {
+            // ไม่เจอ
+            res.status(404).json({ message: 'ไม่พบสินค้านี้ในระบบ' });
+        }
+    });
+});
+
+// ==========================================
+// 🛠️ API บันทึกการรับสินค้าเข้าสต็อก (Stock In)
+// ==========================================
+app.post('/api/stock-in', (req, res) => {
+    const { product_id, quantity, cost_price, expiration_date, user_id } = req.body;
+
+    // 1. ตรวจสอบว่าส่งข้อมูลสำคัญมาครบไหม
+    if (!product_id || !quantity || !cost_price) {
+        return res.status(400).json({ error: 'กรุณาส่งข้อมูลให้ครบถ้วน' });
+    }
+
+    // 2. บันทึกประวัติลงตาราง stock_in
+    const insertStockIn = `
+        INSERT INTO stock_in (product_id, quantity, cost_price, expiration_date, user_id)
+        VALUES (?, ?, ?, ?, ?)
+    `;
+    
+    db.query(insertStockIn, [product_id, quantity, cost_price, expiration_date, user_id], (err, result) => {
+        if (err) {
+            console.error('Error inserting stock_in:', err);
+            return res.status(500).json({ error: 'ไม่สามารถบันทึกประวัติการรับเข้าได้' });
+        }
+
+        // 3. ไปบวกยอดจำนวนสินค้าในตาราง inventory
+        const updateInventory = `
+            UPDATE inventory 
+            SET quantity = quantity + ? 
+            WHERE product_id = ?
+        `;
+        
+        db.query(updateInventory, [quantity, product_id], (err2, result2) => {
+            if (err2) {
+                console.error('Error updating inventory:', err2);
+                return res.status(500).json({ error: 'บันทึกประวัติแล้ว แต่ไม่อัปเดตสต็อกรวม' });
+            }
+            
+            // สำเร็จทั้ง 2 ขั้นตอน ตอบกลับหน้าบ้าน
+            res.status(201).json({ message: 'รับสินค้าเข้าสต็อกและอัปเดตยอดสำเร็จ!' });
+        });
+    });
+});
+
+// ==========================================
 // เริ่มรันเซิร์ฟเวอร์
 // ==========================================
 const PORT = process.env.PORT || 5000;
