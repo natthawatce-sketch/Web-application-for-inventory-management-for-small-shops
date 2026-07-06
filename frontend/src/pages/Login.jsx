@@ -15,10 +15,10 @@ const LoginPage = () => {
     setErrorMessage('');
 
     // 🔍 ตัวติดตามที่ 1: เช็คว่าปุ่มกดทำงานไหม
-    console.log("1. กดปุ่มเข้าสู่ระบบแล้ว!");
+    console.log("2. กดปุ่มเข้าสู่ระบบแล้ว!");
     console.log("ข้อมูลที่เตรียมส่ง:", { username: loginInput, password });
 
-    
+
     try {
       // 🔍 ตัวติดตามที่ 2: เช็คว่ากำลังเชื่อมต่อ Backend
       console.log("2. กำลังยิงไปที่ http://localhost:5000/api/login ...");
