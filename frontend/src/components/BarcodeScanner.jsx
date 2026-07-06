@@ -1,57 +1,67 @@
-import React, { useEffect } from 'react';
-import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import React, { useEffect, useRef, useState } from 'react';
+import { BrowserMultiFormatReader } from '@zxing/browser';
 
 function BarcodeScanner({ onScanSuccess }) {
+  const videoRef = useRef(null);
+  const [error, setError] = useState('');
+
   useEffect(() => {
-    // กำหนดค่าเครื่องสแกนเหมือนเดิม
-    const scanner = new Html5QrcodeScanner(
-      "reader", 
-      { 
-        fps: 15, 
-        qrbox: { width: 280, height: 120 }, 
-        disableFlip: false,
-        useBarCodeDetectorIfSupported: true, // เปิดใช้ระบบ Image Processing ของมือถือ (ถ้ามี)
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.UPC_A
-        ],
-        videoConstraints: {
-          facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          advanced: [{ focusMode: "continuous" }]
+    let controls = null;
+    const codeReader = new BrowserMultiFormatReader();
+
+    codeReader
+      .decodeFromConstraints(
+        {
+          audio: false,
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            advanced: [{ focusMode: "continuous" }]
+          },
+        },
+        videoRef.current,
+        (result, err) => {
+          if (result) {
+            if (onScanSuccess) {
+              onScanSuccess(result.getText());
+            }
+          }
+          if (err && err.name !== 'NotFoundException') {
+            // Uncomment to debug errors other than not finding a barcode
+            // console.error(err);
+          }
         }
-      },
-      false
-    );
+      )
+      .then((c) => {
+        controls = c;
+      })
+      .catch((err) => {
+        console.error(err);
+        setError('ไม่สามารถเปิดกล้องได้: ' + err.message);
+      });
 
-    // ฟังก์ชันเมื่อสแกนสำเร็จ
-    const handleScanSuccess = (decodedText) => {
-      // ส่งค่าที่สแกนได้กลับไปให้ Component แม่
-      if (onScanSuccess) {
-        onScanSuccess(decodedText);
-      }
-    };
-
-    const handleScanFailure = (error) => {
-      // สามารถเพิ่มการจัดการ error ได้ถ้าต้องการ
-    };
-
-    // เริ่มทำงาน
-    scanner.render(handleScanSuccess, handleScanFailure);
-
-    // Cleanup function เมื่อออกจากหน้านั้นๆ (สำคัญมาก ป้องกันกล้องค้าง)
     return () => {
-      scanner.clear().catch(error => console.error("Failed to clear scanner", error));
+      if (controls) {
+        controls.stop();
+      }
     };
   }, [onScanSuccess]);
 
   return (
-    <div className='flex justify-center my-3'>
-      {/* โครงสร้าง UI สำหรับตัวสแกน เหมือนที่คุณตั้งค่าไว้ */}
-      <div id="reader" className="w-full max-w-sm rounded-md overflow-hidden border-2 border-gray-200"></div>
+    <div className='flex flex-col items-center justify-center my-3 w-full'>
+      {error && <p className="text-red-500 mb-2 text-sm">{error}</p>}
+      <div className="relative w-full max-w-sm rounded-md overflow-hidden border-2 border-gray-300 bg-black">
+        <video ref={videoRef} className="w-full h-auto object-cover" style={{ minHeight: '200px' }} />
+        {/* กรอบเล็งบาร์โค้ด */}
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+           <div className="w-[80%] h-[120px] border-2 border-red-500 relative bg-black/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
+              {/* เส้นสแกนสีแดงวิ่ง */}
+              <div className="absolute top-1/2 left-0 w-full h-0.5 bg-red-500 opacity-80 shadow-[0_0_8px_rgba(239,68,68,1)]"></div>
+           </div>
+        </div>
+      </div>
+      <p className="mt-2 text-sm text-gray-500">โปรดวางเส้นสีแดงให้ตรงกับบาร์โค้ด</p>
     </div>
   );
 }

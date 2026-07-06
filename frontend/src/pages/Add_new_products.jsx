@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import BarcodeScanner from '../components/BarcodeScanner';
 import { useNavigate } from 'react-router-dom';
 
 function Add_new_products() {
@@ -26,43 +26,12 @@ function Add_new_products() {
     };
 
     fetchCategories();
+  }, []); // ปิด useEffect อย่างถูกต้อง
 
-    // 2. เรียกใช้งานเครื่องสแกนบาร์โค้ด
-    const scanner = new Html5QrcodeScanner(
-      "reader", 
-      { 
-        fps: 15, 
-        qrbox: { width: 280, height: 120 }, 
-        disableFlip: false,
-        useBarCodeDetectorIfSupported: true, // เปิดใช้ระบบ Image Processing ของมือถือ (ถ้ามี)
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.UPC_A
-        ],
-        videoConstraints: {
-          facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          advanced: [{ focusMode: "continuous" }]
-        }
-      },
-      false
-    );
+  const onScanSuccess = (decodedText) => {
+    setBarcode(decodedText);
+  };
 
-    const onScanSuccess = (decodedText) => {
-      setBarcode(decodedText);
-    };
-
-    const onScanFailure = (error) => {};
-
-    scanner.render(onScanSuccess, onScanFailure);
-
-    return () => {
-      scanner.clear().catch(error => console.error("Failed to clear scanner", error));
-    };
-  }, []);
 
   // ฟังก์ชันส่งข้อมูล (FormData)
   const handleSaveProduct = async () => {
@@ -131,7 +100,7 @@ function Add_new_products() {
       </div>  
 
       <div className='flex justify-center my-3 mx-10 xl:mx-72'>
-        <div id="reader" className="w-full max-w-sm rounded-md overflow-hidden border-2 border-gray-300"></div>
+        <BarcodeScanner onScanSuccess={onScanSuccess} />
       </div>
 
       <div className='mx-10 xl:mx-72'>
