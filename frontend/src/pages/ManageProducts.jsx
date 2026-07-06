@@ -9,6 +9,7 @@ const ManageProducts = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+   
   
   // --- Filters ---
   const [filterCategory, setFilterCategory] = useState('');
