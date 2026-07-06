@@ -19,6 +19,9 @@ function BarcodeScanner({ onScanSuccess }) {
       BarcodeFormat.UPC_E,
       BarcodeFormat.CODE_39
     ]);
+    
+    // บังคับให้ระบบพยายามอ่านบาร์โค้ดที่เบลอหรืออ่านยาก (ใช้ CPU มากขึ้นแต่แม่นยำขึ้นมาก)
+    hints.set(DecodeHintType.TRY_HARDER, true);
 
     const codeReader = new BrowserMultiFormatReader(hints);
 
