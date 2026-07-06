@@ -77,7 +77,7 @@ function Add_new_products() {
   };
 
   return (
-    <div className="h-screen w-full overflow-hidden bg-white ">
+    <div className="min-h-screen w-full overflow-y-auto bg-white pb-10">
       <div className='flex items-center bg-blue-900 h-16 w-auto   '>
         <div className='w-1/2'>
           {/* ซ้าย: ปุ่มย้อนกลับ */}
