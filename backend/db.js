@@ -1,5 +1,6 @@
 const mysql = require('mysql2');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 // สร้างการเชื่อมต่อกับฐานข้อมูล
 const pool = mysql.createPool({

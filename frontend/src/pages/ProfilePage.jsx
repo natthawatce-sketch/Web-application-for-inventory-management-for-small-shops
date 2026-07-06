@@ -36,7 +36,7 @@ const ProfilePage = () => {
         return;
       }
       try {
-        const response = await fetch(`http://localhost:5000/api/users/profile/${userId}`);
+        const response = await fetch(`http://${window.location.hostname}:5000/api/users/profile/${userId}`);
         const data = await response.json();
         
         if (response.ok) {
@@ -49,7 +49,7 @@ const ProfilePage = () => {
           
           // เช็คว่ามีรูปโปรไฟล์ในฐานข้อมูลไหม ถ้ามีให้แสดงรูปจากเซิร์ฟเวอร์หลังบ้าน
           if (data.profile_image) {
-            setImagePreview(`http://localhost:5000/uploads/${data.profile_image}`);
+            setImagePreview(`http://${window.location.hostname}:5000/uploads/${data.profile_image}`);
           }
         }
       } catch (error) {
@@ -125,7 +125,7 @@ const ProfilePage = () => {
       }
 
       // 🚀 ยิงคำสั่งอัปเดตไปที่พอร์ตหลังบ้าน
-      const response = await fetch(`http://localhost:5000/api/users/${userId}`, {
+      const response = await fetch(`http://${window.location.hostname}:5000/api/users/${userId}`, {
         method: 'PUT',
         body: dataToSend, 
       });

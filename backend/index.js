@@ -3,7 +3,7 @@ const cors = require('cors');
 const multer = require('multer'); 
 const path = require('path');
 const bcrypt = require('bcrypt'); // 🌟 เพิ่ม bcrypt สำหรับระบบรักษาความปลอดภัยรหัสผ่าน
-require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 // เรียกใช้ไฟล์ตั้งค่าฐานข้อมูล
 const db = require('./db');

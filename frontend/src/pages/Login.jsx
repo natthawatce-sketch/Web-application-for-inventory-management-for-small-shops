@@ -22,7 +22,7 @@ const LoginPage = () => {
       // 🔍 ตัวติดตามที่ 2: เช็คว่ากำลังเชื่อมต่อ Backend
       console.log("2. กำลังยิงไปที่ http://localhost:5000/api/login ...");
 
-      const response = await fetch('http://localhost:5000/api/login', {
+      const response = await fetch(`http://${window.location.hostname}:5000/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: loginInput, password }),

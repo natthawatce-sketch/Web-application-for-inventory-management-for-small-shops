@@ -25,7 +25,7 @@ const ManageUsers = () => {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/users');
+      const response = await fetch(`http://${window.location.hostname}:5000/api/users`);
       const data = await response.json();
       if (response.ok) {
         setUsers(data);
@@ -74,7 +74,7 @@ const ManageUsers = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${editingUserId}`, {
+      const response = await fetch(`http://${window.location.hostname}:5000/api/users/${editingUserId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -109,7 +109,7 @@ const ManageUsers = () => {
     
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${userToDelete.user_id}`, {
+      const response = await fetch(`http://${window.location.hostname}:5000/api/users/${userToDelete.user_id}`, {
         method: 'DELETE',
       });
 

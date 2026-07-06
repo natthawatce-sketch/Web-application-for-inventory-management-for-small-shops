@@ -1,0 +1,7 @@
+{
+  "name": "shop-project",
+  "version": "1.0.0",
+  "scripts": {
+    "up": "cd backend && npm run up"
+  }
+}
