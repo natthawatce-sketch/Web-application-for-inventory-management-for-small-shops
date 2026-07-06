@@ -90,7 +90,7 @@ const Navbar = () => {
           <div className="w-10 h-10 rounded-full bg-gray-200 border-2 border-white/50 overflow-hidden flex items-center justify-center">
             <img
               src={profileImage 
-                ? `http://${window.location.hostname}:5000/uploads/${profileImage}` 
+                ? `/uploads/${profileImage}` 
                 : `https://ui-avatars.com/api/?name=${username || 'User'}&background=eff6ff&color=1d4ed8&size=100`
               } 
               alt="Profile"
@@ -106,7 +106,7 @@ const Navbar = () => {
             <div className="flex items-center p-2 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors mb-2">
               <img 
                 src={profileImage 
-                  ? `http://${window.location.hostname}:5000/uploads/${profileImage}` 
+                  ? `/uploads/${profileImage}` 
                   : `https://ui-avatars.com/api/?name=${username || 'User'}&background=eff6ff&color=1d4ed8&size=100`
                 } 
                 alt="Profile" 

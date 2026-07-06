@@ -45,7 +45,7 @@ const AddUser = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`http://${window.location.hostname}:5000/api/users`, {
+      const response = await fetch(`/api/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

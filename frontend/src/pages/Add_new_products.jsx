@@ -17,7 +17,7 @@ function Add_new_products() {
     // 1. ดึงข้อมูลหมวดหมู่สินค้าจาก Backend
     const fetchCategories = async () => {
       try {
-        const response = await fetch(`http://${window.location.hostname}:5000/api/categories`);
+        const response = await fetch(`/api/categories`);
         const data = await response.json();
         setCategories(data); // เอาข้อมูลที่ได้ไปเก็บใน state categories
       } catch (error) {
@@ -71,7 +71,7 @@ function Add_new_products() {
     }
 
     try {
-      const response = await fetch(`http://${window.location.hostname}:5000/api/products`, {
+      const response = await fetch(`/api/products`, {
         method: "POST",
         body: formData, 
       });

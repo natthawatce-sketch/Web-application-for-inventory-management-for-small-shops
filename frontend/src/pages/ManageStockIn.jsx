@@ -29,7 +29,7 @@ function ManageStockIn() {
 
   const fetchStockInData = async () => {
     try {
-      const response = await fetch(`http://${window.location.hostname}:5000/api/stock-in`);
+      const response = await fetch(`/api/stock-in`);
       if (response.ok) {
         const data = await response.json();
         setStockItems(data);
@@ -41,7 +41,7 @@ function ManageStockIn() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`http://${window.location.hostname}:5000/api/categories`);
+      const response = await fetch(`/api/categories`);
       if (response.ok) {
         const data = await response.json();
         setCategories(data);
@@ -81,7 +81,7 @@ function ManageStockIn() {
         user_id: userId 
       };
 
-      const response = await fetch(`http://${window.location.hostname}:5000/api/stock-in/${selectedStockIn.stock_in_id}`, {
+      const response = await fetch(`/api/stock-in/${selectedStockIn.stock_in_id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dataToSend) 
@@ -110,7 +110,7 @@ function ManageStockIn() {
     setIsDeleteConfirmOpen(false); // ปิดหน้าต่างยืนยันก่อน
     const toastId = toast.loading('กำลังลบข้อมูล...');
     try {
-      const response = await fetch(`http://${window.location.hostname}:5000/api/stock-in/${selectedStockIn.stock_in_id}`, {
+      const response = await fetch(`/api/stock-in/${selectedStockIn.stock_in_id}`, {
         method: 'DELETE' 
       });
       
