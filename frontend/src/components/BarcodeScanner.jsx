@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 
 function BarcodeScanner({ onScanSuccess }) {
   useEffect(() => {
@@ -8,12 +8,21 @@ function BarcodeScanner({ onScanSuccess }) {
       "reader", 
       { 
         fps: 10, 
-        qrbox: { width: 250, height: 100 }, 
+        qrbox: { width: 250, height: 150 }, 
         disableFlip: false,
+        useBarCodeDetectorIfSupported: true, // เปิดใช้ระบบ Image Processing ของมือถือ (ถ้ามี)
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.QR_CODE
+        ],
         videoConstraints: {
           facingMode: "environment",
           width: { ideal: 1280 },
-          height: { ideal: 720 }
+          height: { ideal: 720 },
+          advanced: [{ focusMode: "continuous" }]
         }
       },
       false
