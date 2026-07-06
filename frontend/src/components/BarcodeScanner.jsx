@@ -6,7 +6,15 @@ function BarcodeScanner({ onScanSuccess }) {
   const videoRef = useRef(null);
   const [error, setError] = useState('');
 
+  const onScanSuccessRef = useRef(onScanSuccess);
+  
+  // อัปเดต ref ทุกครั้งที่ onScanSuccess เปลี่ยน โดยไม่ต้องเริ่มกล้องใหม่
   useEffect(() => {
+    onScanSuccessRef.current = onScanSuccess;
+  }, [onScanSuccess]);
+
+  useEffect(() => {
+    let isMounted = true;
     let controls = null;
     
     // ตั้งค่าให้สแกนเฉพาะ Barcode (1D) เท่านั้น ไม่เอา QR Code
@@ -37,9 +45,10 @@ function BarcodeScanner({ onScanSuccess }) {
         },
         videoRef.current,
         (result, err) => {
+          if (!isMounted) return;
           if (result) {
-            if (onScanSuccess) {
-              onScanSuccess(result.getText());
+            if (onScanSuccessRef.current) {
+              onScanSuccessRef.current(result.getText());
             }
           }
           if (err && err.name !== 'NotFoundException') {
@@ -49,19 +58,26 @@ function BarcodeScanner({ onScanSuccess }) {
         }
       )
       .then((c) => {
-        controls = c;
+        if (!isMounted) {
+          c.stop(); // ถ้าเปลี่ยนหน้าไปแล้วให้ปิดกล้องทันที
+        } else {
+          controls = c;
+        }
       })
       .catch((err) => {
-        console.error(err);
-        setError('ไม่สามารถเปิดกล้องได้: ' + err.message);
+        if (isMounted) {
+          console.error(err);
+          setError('ไม่สามารถเปิดกล้องได้: ' + err.message);
+        }
       });
 
     return () => {
+      isMounted = false;
       if (controls) {
         controls.stop();
       }
     };
-  }, [onScanSuccess]);
+  }, []); // ลบ onScanSuccess ออกจาก dependencies ป้องกันกล้อง restart รัวๆ
 
   return (
     <div className='flex flex-col items-center justify-center my-3 w-full'>
