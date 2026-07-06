@@ -9,7 +9,12 @@ function BarcodeScanner({ onScanSuccess }) {
       { 
         fps: 10, 
         qrbox: { width: 250, height: 100 }, 
-        disableFlip: false 
+        disableFlip: false,
+        videoConstraints: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
       },
       false
     );
