@@ -67,7 +67,7 @@ function BarcodeScanner({ onScanSuccess }) {
     <div className='flex flex-col items-center justify-center my-3 w-full'>
       {error && <p className="text-red-500 mb-2 text-sm">{error}</p>}
       <div className="relative w-full max-w-sm rounded-md overflow-hidden border-2 border-gray-300 bg-black">
-        <video ref={videoRef} className="w-full h-[250px] object-cover" />
+        <video ref={videoRef} className="w-full h-[160px] object-cover" />
         {/* กรอบเล็งบาร์โค้ด */}
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
            <div className="w-[80%] h-[120px] border-2 border-red-500 relative bg-black/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
