@@ -7,16 +7,15 @@ function BarcodeScanner({ onScanSuccess }) {
     const scanner = new Html5QrcodeScanner(
       "reader", 
       { 
-        fps: 10, 
-        qrbox: { width: 250, height: 150 }, 
+        fps: 15, 
+        qrbox: { width: 280, height: 120 }, 
         disableFlip: false,
         useBarCodeDetectorIfSupported: true, // เปิดใช้ระบบ Image Processing ของมือถือ (ถ้ามี)
         formatsToSupport: [
           Html5QrcodeSupportedFormats.EAN_13,
           Html5QrcodeSupportedFormats.EAN_8,
           Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.QR_CODE
+          Html5QrcodeSupportedFormats.UPC_A
         ],
         videoConstraints: {
           facingMode: "environment",
