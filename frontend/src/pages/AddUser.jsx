@@ -36,7 +36,6 @@ const AddUser = () => {
       return;
     }
 
-    
     if (password.length < 6) {
       setEmptyFields(['password']);
       setErrorMessage('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');

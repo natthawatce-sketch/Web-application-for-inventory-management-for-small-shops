@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast, { Toaster } from 'react-hot-toast';
 
 function ManageStockIn() {
   const navigate = useNavigate();
 
   // --- States สำหรับเก็บข้อมูล ---
   const [stockItems, setStockItems] = useState([]);
-  const [categories, setCategories] = useState([]); // เก็บหมวดหมู่จาก Database โดยตรง
+  const [categories, setCategories] = useState([]); 
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -16,14 +17,16 @@ function ManageStockIn() {
   const [formData, setFormData] = useState({
     quantity: '',
     cost_price: '',
-    expiration_date: '' // ลบ mfg_date ออกแล้ว เหลือแค่วันหมดอายุ
+    expiration_date: '' 
   });
+
+  // 🌟 State ใหม่สำหรับหน้าต่าง "ยืนยันการลบ"
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   // --- ระบบแบ่งหน้า (Pagination) ---
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5; 
 
-  // 🌟 ฟังก์ชันที่ 1: ดึงประวัติรับเข้าสินค้า
   const fetchStockInData = async () => {
     try {
       const response = await fetch('http://localhost:5000/api/stock-in');
@@ -36,7 +39,6 @@ function ManageStockIn() {
     }
   };
 
-  // 🌟 ฟังก์ชันที่ 2: ดึงข้อมูลหมวดหมู่สินค้าโดยตรงจากตาราง categories
   const fetchCategories = async () => {
     try {
       const response = await fetch('http://localhost:5000/api/categories');
@@ -49,7 +51,6 @@ function ManageStockIn() {
     }
   };
 
-  // เรียกใช้ 2 ฟังก์ชันพร้อมกันตอนเปิดหน้าเว็บ
   useEffect(() => {
     fetchStockInData();
     fetchCategories();
@@ -59,7 +60,6 @@ function ManageStockIn() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // เปิดหน้าต่าง Modal เพื่อเตรียมแก้ไขข้อมูล
   const openEditModal = (item) => {
     setSelectedStockIn(item);
     setFormData({
@@ -70,54 +70,65 @@ function ManageStockIn() {
     setIsEditModalOpen(true);
   };
 
-  // ส่งข้อมูลไปอัปเดตที่หลังบ้าน (ยิงผ่าน API PUT)
   const handleConfirmUpdate = async (e) => {
     e.preventDefault();
+    const toastId = toast.loading('กำลังบันทึกข้อมูล...'); 
     try {
+      const userId = localStorage.getItem('user_id') || 1;
+
+      const dataToSend = {
+        ...formData, 
+        user_id: userId 
+      };
+
       const response = await fetch(`http://localhost:5000/api/stock-in/${selectedStockIn.stock_in_id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(dataToSend) 
       });
 
       if (response.ok) {
-        alert('✅ แก้ไขข้อมูลประวัติล็อตสินค้ารับเข้าเรียบร้อยแล้ว!');
+        toast.success('แก้ไขข้อมูลล็อตรับเข้าเรียบร้อยแล้ว!', { id: toastId }); 
         setIsEditModalOpen(false);
-        fetchStockInData(); // ดึงข้อมูลใหม่มาโชว์ทันที
+        fetchStockInData(); 
       } else {
-        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+        toast.error('เกิดข้อผิดพลาดในการบันทึกข้อมูล', { id: toastId }); 
       }
     } catch (error) {
       console.error("Error updating stock in item:", error);
+      toast.error('ระบบหลังบ้านเกิดข้อผิดพลาด', { id: toastId });
     }
   };
 
-  // ฟังก์ชันลบข้อมูล (Delete)
-  const handleDeleteStockIn = async () => {
-    if (window.confirm(`⚠️ คุณแน่ใจหรือไม่ว่าต้องการลบประวัติการรับเข้าของ "${selectedStockIn.product_name}" ?\n\n*ระบบจะหักยอดสต็อกสินค้าชิ้นนี้ออกตามจำนวนที่เคยรับเข้าด้วย`)) {
-      try {
-        const response = await fetch(`http://localhost:5000/api/stock-in/${selectedStockIn.stock_in_id}`, {
-          method: 'DELETE' 
-        });
-        
-        if (response.ok) {
-          alert('🗑️ ลบประวัติรับเข้าสำเร็จ!');
-          setIsEditModalOpen(false);
-          fetchStockInData();
-        } else {
-          alert('ไม่สามารถลบข้อมูลได้ อาจมีข้อผิดพลาด');
-        }
-      } catch (error) {
-        console.error("Error deleting stock in:", error);
+  // 🌟 ฟังก์ชันที่ 1: แค่เปิดหน้าต่างยืนยันการลบ (ยังไม่ลบจริง)
+  const handleDeleteClick = () => {
+    setIsDeleteConfirmOpen(true);
+  };
+
+  // 🌟 ฟังก์ชันที่ 2: กดตกลงในหน้าต่างป๊อปอัปแล้ว ค่อยลบจริงๆ
+  const confirmDeleteStockIn = async () => {
+    setIsDeleteConfirmOpen(false); // ปิดหน้าต่างยืนยันก่อน
+    const toastId = toast.loading('กำลังลบข้อมูล...');
+    try {
+      const response = await fetch(`http://localhost:5000/api/stock-in/${selectedStockIn.stock_in_id}`, {
+        method: 'DELETE' 
+      });
+      
+      if (response.ok) {
+        toast.success('ลบประวัติรับเข้าสำเร็จ!', { id: toastId }); 
+        setIsEditModalOpen(false); // ปิดหน้าต่างแก้ไข(อันหลัง)ด้วย
+        fetchStockInData();
+      } else {
+        toast.error('ไม่สามารถลบข้อมูลได้ อาจมีข้อผิดพลาด', { id: toastId }); 
       }
+    } catch (error) {
+      console.error("Error deleting stock in:", error);
+      toast.error('ระบบหลังบ้านเกิดข้อผิดพลาด', { id: toastId });
     }
   };
 
-  // ฟังก์ชันกรองข้อมูลในช่องค้นหาและประเภทสินค้า
   const filteredStock = stockItems.filter(item => {
     const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-    
-    // เผื่อกรณีดึงชื่อจาก users.username ไม่ได้ (รองรับ fallback)
     const adderName = item.added_by || item.user_id?.toString() || '';
     const prodName = item.product_name || '';
 
@@ -126,14 +137,15 @@ function ManageStockIn() {
     return matchesCategory && matchesSearch;
   });
 
-  // คำนวณขอบเขต Pagination
   const totalPages = Math.ceil(filteredStock.length / itemsPerPage);
   const currentItems = filteredStock.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans relative overflow-x-hidden">
       
-      {/* --- ส่วนหัวบนสุด (Top Header Navbar) --- */}
+      <Toaster position="top-center" reverseOrder={false} />
+      
+      {/* --- Header --- */}
       <div className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 bg-white border-b border-slate-200 shadow-sm flex-shrink-0 gap-2">
         <div className="flex justify-start">
           <button onClick={() => navigate('/dashboard')} className="flex items-center justify-center gap-1.5 text-slate-500 hover:text-blue-600 font-semibold transition-colors bg-slate-50 px-2.5 sm:px-3 py-2 rounded-lg border border-slate-200 shadow-sm text-xs sm:text-sm">
@@ -168,10 +180,8 @@ function ManageStockIn() {
         </div>
       </div>
 
-      {/* --- ส่วนเนื้อหารายงานประวัติล็อตสินค้า --- */}
+      {/* --- ส่วนเนื้อหารายงาน --- */}
       <div className="p-4 sm:p-6 flex-1 max-w-6xl mx-auto w-full flex flex-col">
-        
-        {/* แถบคอนโทรล */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-4">
           <div className="relative w-full md:flex-1">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -196,7 +206,6 @@ function ManageStockIn() {
               className="text-xs sm:text-sm border-none outline-none bg-transparent text-slate-700 cursor-pointer w-full md:w-auto font-medium"
             >
               <option value="all">ประเภททั้งหมด</option>
-              {/* 🌟 วนลูปโชว์ประเภทสินค้าทั้งหมดที่มีในตาราง categories */}
               {categories.map(cat => (
                 <option key={cat.category_id} value={cat.category_name}>
                   {cat.category_name}
@@ -206,7 +215,7 @@ function ManageStockIn() {
           </div>
         </div>
 
-        {/* 📱 1. การแสดงผลแบบ CARD VIEW (มือถือ) */}
+        {/* 📱 Mobile Card View */}
         <div className="block md:hidden space-y-3 flex-1">
           {currentItems.map((item) => {
             const rcv_string = item.received_date ? new Date(item.received_date).toLocaleDateString('th-TH') : '-';
@@ -241,7 +250,7 @@ function ManageStockIn() {
           })}
         </div>
 
-        {/* 💻 2. การแสดงผลแบบ TABLE VIEW (iPad / PC) */}
+        {/* 💻 Desktop Table View */}
         <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1">
           <table className="w-full text-left text-sm whitespace-nowrap table-fixed">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold text-xs tracking-wider">
@@ -285,7 +294,7 @@ function ManageStockIn() {
           </table>
         </div>
 
-        {/* --- แถบสลับหน้า (Pagination) --- */}
+        {/* Pagination */}
         {totalPages > 1 && (
           <div className="mt-4 flex items-center justify-between gap-3 pt-2">
             <span className="text-xs text-slate-500">หน้า {currentPage} จาก {totalPages}</span>
@@ -305,7 +314,7 @@ function ManageStockIn() {
         )}
       </div>
 
-      {/* --- หน้าต่างป๊อปอัปสำหรับ "แก้ไข/ลบ ข้อมูลที่กรอกผิดพลาด" (Modal) --- */}
+      {/* --- หน้าต่างป๊อปอัปสำหรับ แก้ไขข้อมูล --- */}
       {isEditModalOpen && selectedStockIn && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
@@ -345,10 +354,10 @@ function ManageStockIn() {
               </div>
 
               <div className="pt-5 mt-2 flex flex-col-reverse sm:flex-row justify-between gap-3 border-t border-slate-100">
-                {/* 🔴 ปุ่มลบข้อมูล */}
+                {/* 🔴 ปุ่มลบข้อมูล (เรียกใช้กล่อง Confirm Custom แทน window.confirm) */}
                 <button 
                   type="button" 
-                  onClick={handleDeleteStockIn} 
+                  onClick={handleDeleteClick} 
                   className="flex items-center justify-center gap-1.5 px-4 py-2 text-sm rounded-lg font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors w-full sm:w-auto"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
@@ -357,7 +366,6 @@ function ManageStockIn() {
                   ลบประวัตินี้
                 </button>
 
-                {/* 🔵 ปุ่มยกเลิก และ 🟠 บันทึก */}
                 <div className="flex justify-end gap-2 sm:gap-3 w-full sm:w-auto">
                   <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 sm:flex-none px-4 py-2 text-sm rounded-lg font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">ยกเลิก</button>
                   <button type="submit" className="flex-1 sm:flex-none px-5 py-2 text-sm rounded-lg font-semibold text-white bg-amber-600 hover:bg-amber-700 shadow-md transition-all">บันทึก</button>
@@ -365,6 +373,50 @@ function ManageStockIn() {
               </div>
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* 🔴 หน้าต่างยืนยันการลบแบบ Custom (แทนที่ window.confirm) */}
+      {isDeleteConfirmOpen && selectedStockIn && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 mb-2">ยืนยันการลบข้อมูล</h3>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                คุณแน่ใจหรือไม่ว่าต้องการลบประวัติการรับเข้าของ <br/>
+                <span className="font-bold text-slate-800">"{selectedStockIn.product_name}"</span> ?
+              </p>
+              
+              <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-100 text-left flex items-start gap-2">
+                <span className="text-red-500 mt-0.5">⚠️</span>
+                <p className="text-[11px] text-red-700 font-medium leading-relaxed">
+                  ระบบจะหักยอดสต็อกสินค้าชิ้นนี้ออกตามจำนวน <span className="font-bold border-b border-red-300">({selectedStockIn.quantity} ชิ้น)</span> ที่เคยรับเข้าด้วย 
+                </p>
+              </div>
+            </div>
+            
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                className="flex-1 px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-sm font-bold rounded-xl transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteStockIn}
+                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl shadow-md transition-colors"
+              >
+                ยืนยันลบ
+              </button>
+            </div>
           </div>
         </div>
       )}

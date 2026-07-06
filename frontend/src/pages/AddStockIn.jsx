@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Html5Qrcode } from 'html5-qrcode';
 import toast, { Toaster } from 'react-hot-toast';
+
+// 🌟 Import Component BarcodeScanner เข้ามา (อย่าลืมเช็ค Path โฟลเดอร์ให้ตรงนะครับ)
+import BarcodeScanner from '../components/BarcodeScanner';
 
 function AddStockIn() {
   const navigate = useNavigate();
@@ -23,34 +25,31 @@ function AddStockIn() {
       return;
     }
 
-    // 🌟 ดักทางช่องว่าง (Spacebar) ที่ชอบแอบซ่อนมากับบาร์โค้ด
+    // 🌟 ดักทางช่องว่าง (Spacebar) ที่แอบซ่อนมา
     const cleanBarcode = scannedBarcode.toString().trim();
+    const toastId = toast.loading('กำลังค้นหาข้อมูล...');
     
     try {
-      // 🌟 ยิงไปหาบาร์โค้ดตัวที่สะอาดแล้ว
       const response = await fetch(`http://localhost:5000/api/products/barcode/${cleanBarcode}`);
-      
-      console.log("🌟 Status จากหลังบ้าน:", response.status); // เช็คว่า 200 หรือ 404
 
       if (response.ok) {
         const data = await response.json();
-        console.log("📦 ข้อมูลดิบที่ได้จากหลังบ้าน:", data); // ดูว่าหน้าตาข้อมูลมายังไง
-        
-        // ดักจับ Array เผื่อหลังบ้านเผลอส่งมา
         const productData = Array.isArray(data) ? data[0] : data;
 
-        // เช็คว่ามีข้อมูลจริงไหม
         if (productData && productData.product_id) {
           setProductInfo(productData);
+          
+          // ✨ เพิ่มเติม: เคลียร์ฟอร์มกรอกข้อมูลทิ้ง ป้องกันกรณีสแกนเปลี่ยนสินค้าแล้วจำนวนของเก่าค้าง
+          setFormData({ quantity: '', cost_price: '', expiration_date: '' });
+          
           toast.success('ดึงข้อมูลสินค้าสำเร็จ!', { id: toastId });
         } else {
           setProductInfo(null);
           toast.error('ข้อมูลที่ได้มา ไม่สมบูรณ์', { id: toastId });
         }
-
       } else {
-        // ถ้า Response ไม่ใช่ 200-299 (เช่น 404 Not Found)
         setProductInfo(null);
+        setFormData({ quantity: '', cost_price: '', expiration_date: '' });
         toast.error('ไม่พบสินค้ารหัสนี้ในระบบ', { id: toastId });
       }
     } catch (error) {
@@ -59,56 +58,27 @@ function AddStockIn() {
     }
   };
 
-  // 📸 ระบบเปิดกล้องอัตโนมัติ
-  useEffect(() => {
-    let isMounted = true;
-    const scanner = new Html5Qrcode("reader");
+  // 📸 ฟังก์ชันรับค่าจาก BarcodeScanner Component
+  const handleScanSuccess = (decodedText) => {
+    if (decodedText !== lastScannedRef.current) {
+      lastScannedRef.current = decodedText;
+      setBarcodeInput(decodedText);
+      fetchProductByBarcode(decodedText); // สแกนเจอปุ๊บ ดึงข้อมูลโชว์ทันที
+    }
+  };
 
-    const startScanner = async () => {
-      try {
-        await scanner.start(
-          { facingMode: "environment" },
-          { 
-            fps: 10, 
-            qrbox: { width: 250, height: 100 }
-          },
-          (decodedText) => {
-            if (decodedText !== lastScannedRef.current) {
-              lastScannedRef.current = decodedText;
-              setBarcodeInput(decodedText);
-              fetchProductByBarcode(decodedText);
-            }
-          },
-          (errorMessage) => {
-            // ปล่อยผ่าน error การหาโฟกัสของกล้อง
-          }
-        );
-      } catch (err) {
-        if (isMounted) console.warn("Camera start error:", err);
-      }
-    };
-
-    startScanner();
-
-    return () => {
-      isMounted = false;
-      if (scanner.isScanning) {
-        scanner.stop().then(() => scanner.clear()).catch(console.warn);
-      }
-    };
-  }, [fetchProductByBarcode]);
-
-  // 📝 จัดการการพิมพ์
+  // 📝 จัดการการพิมพ์ช่องรับสินค้า
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // 🔎 ค้นหาแบบพิมพ์ตัวเลขเองแล้วกด Enter / ปุ่มค้นหา
   const handleManualSearch = () => {
     lastScannedRef.current = barcodeInput;
     fetchProductByBarcode(barcodeInput);
   };
 
-  // 💾 บันทึกข้อมูล
+  // 💾 บันทึกข้อมูลเข้าสต็อก
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!productInfo) {
@@ -136,12 +106,13 @@ function AddStockIn() {
 
       if (response.ok) {
         toast.success('เพิ่มเข้าสต็อกเรียบร้อย!', { id: toastId });
+        // เคลียร์ทุกอย่างเตรียมยิงตัวต่อไป
         setBarcodeInput('');
         setProductInfo(null);
         setFormData({ quantity: '', cost_price: '', expiration_date: '' });
         lastScannedRef.current = null;
       } else {
-        toast.error('บันทึกไม่สำเร็จ', { id: toastId });
+        toast.error('บันทึกไม่สำเร็จ ตรวจสอบข้อมูลอีกครั้ง', { id: toastId });
       }
     } catch (error) {
       toast.error('หลังบ้านเกิดข้อผิดพลาด', { id: toastId });
@@ -149,29 +120,8 @@ function AddStockIn() {
   };
 
   return (
-    // เปลี่ยนมาใช้ flex-col และ h-screen เพื่อรองรับ Responsive เต็มรูปแบบ
     <div className="h-screen bg-slate-100 flex flex-col font-sans overflow-hidden">
-      <Toaster position="top-right" />
-
-      {/* 🌟 CSS หัวใจสำคัญ: ล็อคความสูงกล้องไม่ให้ขยายล้นจอ iPad/Desktop */}
-      <style>{`
-        #reader {
-          width: 100%;
-          height: 150px; /* ความสูงพื้นฐานสำหรับมือถือ */
-          border-radius: 0.5rem;
-          overflow: hidden;
-          border: none;
-          background: #0f172a;
-        }
-        @media (min-width: 768px) {
-          #reader { height: 240px; } /* ความสูงสำหรับ iPad และ Desktop */
-        }
-        #reader video {
-          width: 100% !important;
-          height: 100% !important;
-          object-fit: cover !important; /* บังคับตัดภาพส่วนเกินออก ไม่ให้ยืด */
-        }
-      `}</style>
+      <Toaster position="top-center" />
 
       {/* --- Header --- */}
       <div className="h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 bg-white border-b border-slate-200 shadow-sm shrink-0">
@@ -187,16 +137,19 @@ function AddStockIn() {
         <div className="w-16 sm:w-20"></div>
       </div>
 
-      {/* --- Main Content (รองรับการ Scroll ในจอเล็ก) --- */}
+      {/* --- Main Content --- */}
       <div className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto">
         <div className="w-full max-w-5xl mx-auto flex flex-col gap-3 sm:gap-4 h-full">
           
-          {/* 🌟 โซนบน: กล้องสแกน & ข้อมูลสินค้า (แบ่งซ้าย-ขวาบนจอใหญ่, บนจอเล็กซ้อนบน-ล่าง) */}
           <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 shrink-0">
             
-            {/* 1. กล่องสแกนกล้อง (ความสูงล็อคไว้แล้วผ่าน CSS) */}
+            {/* 1. กล่องสแกนกล้อง */}
             <div className="w-full lg:w-5/12 bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-2 sm:p-3 flex flex-col gap-2 sm:gap-3">
-              <div id="reader" className="w-full relative"></div>
+              
+              {/* 🌟 BarcodeScanner */}
+              <div className="w-full relative rounded-xl overflow-hidden bg-white flex-shrink-0">
+                 <BarcodeScanner onScanSuccess={handleScanSuccess} />
+              </div>
               
               {/* ช่องค้นหา Manual */}
               <div className="flex gap-2 shrink-0">
@@ -214,14 +167,13 @@ function AddStockIn() {
               </div>
             </div>
 
-            {/* 2. กล่องแสดงข้อมูลสินค้ารวม (3-in-1: จัดรูปไว้ซ้าย ข้อมูลไว้ขวา) */}
+            {/* 2. กล่องแสดงข้อมูลสินค้ารวม */}
             <div className={`w-full lg:w-7/12 rounded-xl sm:rounded-2xl border-2 flex flex-col transition-all duration-300 p-3 sm:p-4 ${productInfo ? 'bg-white border-blue-300 shadow-md' : 'bg-slate-50 border-dashed border-slate-300'}`}>
               <h3 className="text-xs sm:text-sm font-bold text-slate-500 mb-2 sm:mb-3 flex items-center gap-1.5">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
                 ข้อมูลสินค้า
               </h3>
 
-              {/* ใช้ flex-row บังคับให้อยู่ซ้าย-ขวาเสมอ ช่วยประหยัดพื้นที่แนวตั้ง */}
               <div className="flex flex-row gap-3 sm:gap-5 items-center flex-1">
                 {/* 📸 รูปภาพเล็กๆ ด้านซ้าย */}
                 <div className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-xl border border-slate-200 bg-white overflow-hidden flex items-center justify-center p-1 shadow-sm">
@@ -234,7 +186,6 @@ function AddStockIn() {
 
                 {/* 📝 รายละเอียดด้านขวา */}
                 <div className="flex-1 flex flex-col justify-center space-y-2 sm:space-y-4 overflow-hidden">
-                  {/* บาร์โค้ด */}
                   <div>
                     <div className="text-[10px] sm:text-xs font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider mb-0.5 sm:mb-1">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3 sm:w-3.5 sm:h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" /></svg>
@@ -247,7 +198,6 @@ function AddStockIn() {
                     )}
                   </div>
 
-                  {/* ชื่อสินค้า */}
                   <div>
                     <div className="text-[10px] sm:text-xs font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider mb-0.5 sm:mb-1">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3 sm:w-3.5 sm:h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>
@@ -271,6 +221,11 @@ function AddStockIn() {
           <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-3 sm:p-5 relative shrink-0">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-t-xl sm:rounded-t-2xl"></div>
             
+            <h3 className="text-base font-bold text-slate-800 mb-5 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5 text-blue-600"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+              ข้อมูลรับเข้าสต็อก
+            </h3>
+
             <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 pt-1">
               <div className="lg:col-span-1">
                 <label className="block text-[11px] sm:text-xs font-bold text-slate-600 mb-1">จำนวนรับเข้า <span className="text-red-500">*</span></label>
