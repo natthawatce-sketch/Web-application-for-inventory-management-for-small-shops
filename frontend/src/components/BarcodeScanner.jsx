@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
+import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 
 function BarcodeScanner({ onScanSuccess }) {
   const videoRef = useRef(null);
@@ -7,17 +8,28 @@ function BarcodeScanner({ onScanSuccess }) {
 
   useEffect(() => {
     let controls = null;
-    const codeReader = new BrowserMultiFormatReader();
+    
+    // ตั้งค่าให้สแกนเฉพาะ Barcode (1D) เท่านั้น ไม่เอา QR Code
+    const hints = new Map();
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.CODE_128,
+      BarcodeFormat.UPC_A,
+      BarcodeFormat.UPC_E,
+      BarcodeFormat.CODE_39
+    ]);
+
+    const codeReader = new BrowserMultiFormatReader(hints);
 
     codeReader
       .decodeFromConstraints(
         {
           audio: false,
           video: {
-            facingMode: 'environment',
+            facingMode: { ideal: 'environment' },
             width: { ideal: 1280 },
-            height: { ideal: 720 },
-            advanced: [{ focusMode: "continuous" }]
+            height: { ideal: 720 }
           },
         },
         videoRef.current,
