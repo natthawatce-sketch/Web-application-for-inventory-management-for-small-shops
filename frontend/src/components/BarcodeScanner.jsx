@@ -7,9 +7,8 @@ function BarcodeScanner({ onScanSuccess }) {
     const scanner = new Html5QrcodeScanner(
       "reader", 
       { 
-        fps: 20, 
-        qrbox: { width: 300, height: 100 }, 
-        aspectRatio: 2.5, 
+        fps: 10, 
+        qrbox: { width: 250, height: 100 }, 
         disableFlip: false 
       },
       false
