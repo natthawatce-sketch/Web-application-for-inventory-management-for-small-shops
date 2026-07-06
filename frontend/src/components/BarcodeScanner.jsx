@@ -16,6 +16,11 @@ function BarcodeScanner({ onScanSuccess }) {
   useEffect(() => {
     let isMounted = true;
     let controls = null;
+    let timeoutId = null;
+
+    // หน่วงเวลา 100ms เพื่อป้องกัน React 18 Strict Mode ทำงานซ้ำซ้อนตอน Mount
+    timeoutId = setTimeout(() => {
+      if (!isMounted) return;
     
     // ตั้งค่าให้สแกนเฉพาะ Barcode (1D) เท่านั้น ไม่เอา QR Code
     const hints = new Map();
@@ -67,12 +72,16 @@ function BarcodeScanner({ onScanSuccess }) {
       .catch((err) => {
         if (isMounted) {
           console.error(err);
-          setError('ไม่สามารถเปิดกล้องได้: ' + err.message);
+          // setError('ไม่สามารถเปิดกล้องได้: ' + err.message); // ซ่อน Error ไว้ถ้า User ไม่ได้กดอนุญาต หรือมีปัญหาชั่วคราว
         }
       });
+    }, 100);
 
     return () => {
       isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       if (controls) {
         controls.stop();
       }
