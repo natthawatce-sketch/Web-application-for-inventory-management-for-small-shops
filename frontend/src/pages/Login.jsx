@@ -15,7 +15,7 @@ const LoginPage = () => {
     setErrorMessage('');
 
     // 🔍 ตัวติดตามที่ 1: เช็คว่าปุ่มกดทำงานไหม
-    console.log("3กดปุ่มเข้าสู่ระบบแล้ว!");
+    console.log("1 กดปุ่มเข้าสู่ระบบแล้ว!");
     console.log("ข้อมูลที่เตรียมส่ง:", { username: loginInput, password });
 
 
