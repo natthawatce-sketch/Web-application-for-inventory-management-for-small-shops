@@ -13,7 +13,9 @@ function SellProduct() {
   // States สำหรับควบคุม UI ป๊อปอัป
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isFinalConfirmOpen, setIsFinalConfirmOpen] = useState(false); // 🌟 State สำหรับป๊อปอัปยืนยันชั้นที่ 2
   const [paymentMethod, setPaymentMethod] = useState(''); // 'cash' หรือ 'qr'
+  const [qrImage, setQrImage] = useState(null); // 🌟 State สำหรับเก็บรูปภาพ QR Code ของร้านค้า
   
   const lastScannedRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -24,6 +26,18 @@ function SellProduct() {
       searchInputRef.current.focus();
     }
   }, [isSearchOpen]);
+
+  // 🏪 🌟 ดึงข้อมูลภาพ QR Code จากตาราง store_settings ตอนเปิดหน้าเว็บ
+  useEffect(() => {
+    fetch('/api/store-settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.promptpay_qr) {
+          setQrImage(`/uploads/${data.promptpay_qr}`); // ดึง path รูปภาพมาใช้งานเหมือนตารางสินค้า
+        }
+      })
+      .catch(error => console.error("🚨 Error fetching store QR code:", error));
+  }, []);
 
   // 🔍 ค้นหาและเพิ่มลงตะกร้าสินค้า
   const fetchProductAndAddToCart = async (scannedBarcode) => {
@@ -121,15 +135,18 @@ function SellProduct() {
   const totalItems = cart.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
   const totalPrice = cart.reduce((sum, item) => sum + (item.price * (parseInt(item.quantity) || 0)), 0);
 
-  // 💾 บันทึกการขายและตัดสต็อก
-  const handleProcessSale = async () => {
-    // ป้องกันการกดยืนยันถ้ามีสินค้าที่ quantity เป็นค่าว่าง
+  // 🌟 เปิดกล่องเช็คความถูกต้องก่อนเปิดหน้าต่างยืนยันชั้นที่ 2
+  const handleOpenFinalConfirm = () => {
     const invalidItems = cart.some(item => !item.quantity || item.quantity < 1);
     if (invalidItems) {
       toast.error('กรุณาระบุจำนวนสินค้าให้ถูกต้อง');
       return;
     }
+    setIsFinalConfirmOpen(true);
+  };
 
+  // 💾 บันทึกการขายและตัดสต็อก (ทำงานจริงหลังผ่านการกดยืนยันป๊อปอัปชั้นที่ 2 แล้ว)
+  const handleProcessSale = async () => {
     const toastId = toast.loading('กำลังบันทึกข้อมูล...');
     const userId = localStorage.getItem('user_id') || 1;
 
@@ -149,6 +166,7 @@ function SellProduct() {
         toast.success('บันทึกการขายเสร็จสิ้น!', { id: toastId });
         setCart([]);
         setIsPaymentModalOpen(false);
+        setIsFinalConfirmOpen(false);
         setPaymentMethod('');
       } else {
         toast.error('เกิดข้อผิดพลาดในการขาย', { id: toastId });
@@ -178,7 +196,7 @@ function SellProduct() {
         </button>
       </div>
 
-      {/* ช่องพิมพ์ค้นหา (ย่อขนาดให้กระทัดรัดขึ้น) */}
+      {/* ช่องพิมพ์ค้นหา */}
       {isSearchOpen && (
         <div className="absolute top-14 left-0 w-full bg-white border-b shadow-md p-2.5 z-20 flex gap-1.5 animate-fade-in-up">
           <input 
@@ -192,11 +210,10 @@ function SellProduct() {
         </div>
       )}
 
-      {/* 📸 กล่องวิดีโอตัวจับสแกนกล้อง (ปรับความสูงและความกว้างให้พอดี) */}
+      {/* 📸 กล้องสแกนทำงานแบบ Always On ค้างไว้ตลอดเวลา */}
       <div className="bg-slate-900 px-3 py-2 shrink-0 border-b border-slate-800 shadow-inner flex justify-center">
         <div className="w-full max-w-[280px] rounded-xl overflow-hidden border-2 border-slate-700/50 relative">
           <BarcodeScanner onScanSuccess={handleScanSuccess} />
-          {/* ขีดเลเซอร์จำลองเพื่อความสวยงาม */}
           <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.8)] pointer-events-none"></div>
         </div>
       </div>
@@ -217,7 +234,6 @@ function SellProduct() {
                 <h4 className="font-bold text-slate-800 text-[13px] truncate leading-tight mb-0.5">{item.product_name}</h4>
                 <p className="font-extrabold text-blue-600 text-[11px]">฿{parseFloat(item.price).toFixed(2)}</p>
                 
-                {/* กลุ่มปุ่มแคปซูลขนาดเล็กกะทัดรัด */}
                 <div className="flex items-center gap-1 mt-1 bg-slate-50 w-fit rounded-md p-0.5 border border-slate-200">
                   <button onClick={() => updateQuantity(item.product_id, (parseInt(item.quantity) || 0) - 1)} className="w-5 h-5 flex items-center justify-center bg-white rounded shadow-sm text-slate-700 text-xs font-bold active:bg-slate-100">-</button>
                   <input type="number" value={item.quantity} onChange={(e) => updateQuantity(item.product_id, e.target.value)} className="w-7 text-center bg-transparent text-xs font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" min="1" />
@@ -236,7 +252,7 @@ function SellProduct() {
         )}
       </div>
 
-      {/* --- แถบปุ่มชำระเงินด้านล่าง (ลดความสูงลง) --- */}
+      {/* --- แถบปุ่มชำระเงินด้านล่าง --- */}
       <div className="absolute bottom-0 left-0 w-full bg-white border-t border-slate-200 px-3 py-2.5 shadow-[0_-4px_6px_rgba(0,0,0,0.02)] z-10">
         <div className="flex justify-between items-end mb-2 px-1">
           <span className="text-slate-500 font-bold text-[11px] uppercase tracking-wide">รวมทั้งหมด {totalItems} รายการ</span>
@@ -251,7 +267,7 @@ function SellProduct() {
         </button>
       </div>
 
-      {/* 💰 Modal เลือกวิธีชำระเงิน (ดีไซน์ใหม่) */}
+      {/* 💰 Modal เลือกวิธีชำระเงิน */}
       {isPaymentModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-white p-4 rounded-2xl shadow-2xl w-full max-w-sm flex flex-col gap-3 animate-fade-in-up">
@@ -278,7 +294,7 @@ function SellProduct() {
               </div>
             </div>
             
-            {/* ปุ่มเลือกวิธีชำระเงิน (กะทัดรัดขึ้น) */}
+            {/* ปุ่มเลือกวิธีชำระเงิน */}
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => setPaymentMethod('cash')} className={`py-2 px-1 border-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 ${paymentMethod === 'cash' ? 'border-green-500 bg-green-50 text-green-700 shadow-sm' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
                 <span className="text-lg">💵</span> 
@@ -290,24 +306,31 @@ function SellProduct() {
               </button>
             </div>
 
-            {/* 🌟 โชว์ QR Code รับเงิน (ถ้าเลือกโอน) */}
+            {/* 🌟 1. ดึงภาพ QR Code จากฐานข้อมูลตาราง store_settings มาแสดง */}
             {paymentMethod === 'qr' && (
-              <div className="w-full h-32 bg-white border border-slate-200 rounded-xl flex flex-col items-center justify-center p-2 text-center animate-fade-in-up shadow-sm">
-                <img 
-                  src="https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg" 
-                  alt="QR Code" 
-                  className="h-20 w-20 object-contain mb-1"
-                />
+              <div className="w-full h-34 bg-white border border-slate-200 rounded-xl flex flex-col items-center justify-center p-2 text-center animate-fade-in-up shadow-sm">
+                {qrImage ? (
+                  <img 
+                    src={qrImage} 
+                    alt="Store QR Code" 
+                    className="h-24 w-24 object-contain mb-1"
+                  />
+                ) : (
+                  <div className="h-24 flex flex-col items-center justify-center text-slate-400 text-[10px] p-2 bg-slate-50 rounded-lg w-24 border border-dashed border-slate-300 mb-1">
+                    <span>❌ ไม่พบรูป</span>
+                    <span>QR Code ในระบบ</span>
+                  </div>
+                )}
                 <span className="text-blue-600 font-bold text-[10px] uppercase tracking-wide">สแกนเพื่อชำระเงิน</span>
               </div>
             )}
 
-            {/* กลุ่มปุ่มกดยืนยัน (กระชับและบางลง) */}
+            {/* กลุ่มปุ่มกดยืนยัน (เปลี่ยนไปเปิดป๊อปอัปตรวจสอบความถูกต้องชั้นที่ 2) */}
             <div className="flex gap-2 mt-1">
               <button onClick={() => { setIsPaymentModalOpen(false); setPaymentMethod(''); }} className="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-bold text-xs transition-colors active:scale-95">ยกเลิก</button>
               
               <button 
-                onClick={handleProcessSale} 
+                onClick={handleOpenFinalConfirm} // 🌟 แก้เป็นฟังก์ชันเปิดกล่องเตือนซ้ำป้องกันการกดลั่น
                 disabled={!paymentMethod} 
                 className="w-2/3 flex items-center justify-center gap-1.5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-lg font-bold text-xs transition-colors active:scale-95 disabled:cursor-not-allowed shadow-sm"
               >
@@ -319,6 +342,40 @@ function SellProduct() {
           </div>
         </div>
       )}
+
+      {/* ⚠️ 2. ป๊อปอัปแจ้งเตือนชั้นที่ 2 ยืนยันตรวจสอบการรับเงินลูกค้า */}
+      {isFinalConfirmOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white p-5 rounded-2xl shadow-2xl w-full max-w-xs flex flex-col items-center text-center gap-4 animate-scale-up">
+            <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 text-2xl animate-bounce">
+              ⚠️
+            </div>
+            <div>
+              <h3 className="font-extrabold text-slate-800 text-sm mb-1">ตรวจสอบการชำระเงินอีกครั้ง</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                {paymentMethod === 'qr' 
+                  ? 'ตรวจสอบสลิปแล้ว "ยอดเงินเข้าบัญชี" เรียบร้อยแล้วใช่หรือไม่?' 
+                  : 'ตรวจสอบแล้ว "ได้รับเงินสดครบตามจำนวน" เรียบร้อยแล้วใช่หรือไม่?'}
+              </p>
+            </div>
+            <div className="flex gap-2 w-full mt-1">
+              <button 
+                onClick={() => setIsFinalConfirmOpen(false)} 
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition-all active:scale-95"
+              >
+                ยังไม่สแกน / ย้อนกลับ
+              </button>
+              <button 
+                onClick={handleProcessSale} // ทำงานยิง API ตัดสต็อกจริงที่นี่
+                className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded-xl transition-all active:scale-95 shadow-md shadow-green-200"
+              >
+                ชำระสำเร็จ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

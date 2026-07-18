@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 function ManageSales() {
   const navigate = useNavigate();
@@ -8,6 +10,9 @@ function ManageSales() {
   // --- States ข้อมูล ---
   const [sales, setSales] = useState([]);
   const [filteredSales, setFilteredSales] = useState([]);
+  
+  // 🌟 State สำหรับเก็บชื่อร้าน
+  const [storeName, setStoreName] = useState('ร้านของคุณ'); 
   
   // --- States ตัวกรอง & ค้นหา ---
   const [filterType, setFilterType] = useState('all');
@@ -22,14 +27,15 @@ function ManageSales() {
   const [selectedSale, setSelectedSale] = useState(null);
   const [saleItems, setSaleItems] = useState([]);
 
-  // 1. ดึงข้อมูลบิลจริงจาก Database
+  // 1. ดึงข้อมูลครั้งแรกเมื่อโหลดหน้า
   useEffect(() => {
     fetchSalesData();
+    fetchStoreSettings();
   }, []);
 
   const fetchSalesData = async () => {
     try {
-      const response = await fetch('/api/sales');
+      const response = await fetch('http://localhost:5000/api/sales');
       if (response.ok) {
         const data = await response.json();
         setSales(data);
@@ -39,6 +45,23 @@ function ManageSales() {
     } catch (error) {
       console.error("Error fetching sales:", error);
       setSales([]);
+    }
+  };
+
+  // ดึงข้อมูลชื่อร้านจาก Backend
+  const fetchStoreSettings = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/store-settings');
+      if (response.ok) {
+        const data = await response.json();
+        const storeData = Array.isArray(data) ? data[0] : data;
+        
+        if (storeData && (storeData.shop_name || storeData.store_name)) {
+          setStoreName(storeData.shop_name || storeData.store_name);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching store settings:", error);
     }
   };
 
@@ -62,12 +85,10 @@ function ManageSales() {
     setCurrentPage(1);
   }, [sales, filterType, searchReceipt]);
 
-  // ฟังก์ชันรองรับการเปลี่ยนค่า Dropdown
   const handleFilterChange = (e) => {
     setFilterType(e.target.value);
   };
 
-  // --- คำนวณข้อมูลสำหรับ Pagination ---
   const totalPages = Math.ceil(filteredSales.length / itemsPerPage) || 1;
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -97,7 +118,7 @@ function ManageSales() {
     setIsModalOpen(true);
     
     try {
-      const response = await fetch(`/api/sales/${sale.sale_id}/items`);
+      const response = await fetch(`http://localhost:5000/api/sales/${sale.sale_id}/items`);
       if (response.ok) {
         const items = await response.json();
         setSaleItems(items);
@@ -109,12 +130,42 @@ function ManageSales() {
     }
   };
 
-  // 4. สั่งพิมพ์สลิป / บันทึกเป็น PDF
-  const handlePrintPDF = () => {
-    window.print();
+  // 4. สั่งบันทึกเป็น PDF
+  const handlePrintPDF = async () => {
+    const receiptElement = document.getElementById('receipt-content');
+    if (!receiptElement) return;
+
+    const toastId = toast.loading('กำลังแปลงใบเสร็จเป็น PDF...');
+
+    try {
+      const canvas = await html2canvas(receiptElement, {
+        scale: 3, 
+        useCORS: true, 
+        backgroundColor: '#ffffff', 
+        scrollY: -window.scrollY 
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      
+      const pdfWidth = 80; 
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: [pdfWidth, pdfHeight]
+      });
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Receipt_${selectedSale.sale_id}.pdf`);
+
+      toast.success('ดาวน์โหลด PDF สำเร็จ!', { id: toastId });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('เกิดข้อผิดพลาดในการสร้าง PDF', { id: toastId });
+    }
   };
 
-  // แปลงรูปแบบวันที่ให้อ่านง่าย
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
@@ -123,9 +174,10 @@ function ManageSales() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      <Toaster position="top-right" />
+      {/* 🌟 เปลี่ยนตำแหน่ง Toaster ให้มาอยู่ตรงกลางด้านบน (top-center) */}
+      <Toaster position="top-center" reverseOrder={false} />
 
-      {/* --- สไตล์ CSS ตอนสั่งพิมพ์ --- */}
+      {/* --- สไตล์ CSS ตอนสั่งพิมพ์ผ่านเบราว์เซอร์ --- */}
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -137,8 +189,8 @@ function ManageSales() {
 
       {/* --- Header ส่วนบนสุด --- */}
       <div className="flex items-center justify-between px-3 sm:px-6 h-14 sm:h-16 bg-white border-b border-slate-200 shadow-sm gap-2 shrink-0 no-print">
-        <button 
-          onClick={() => navigate('/SalesReport')} 
+        <button
+          onClick={() => navigate('/SalesReport')}
           className="flex items-center gap-1 sm:gap-2 text-slate-500 hover:text-blue-600 font-semibold transition-colors bg-slate-50 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-slate-200 shadow-sm text-xs sm:text-sm"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4">
@@ -161,30 +213,27 @@ function ManageSales() {
       <div className="flex-1 p-3 sm:p-6 lg:p-8 flex justify-center no-print overflow-y-auto">
         <div className="w-full max-w-3xl bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-fit">
           
-          {/* --- แถบตัวค้นหา & ตัวกรอง (บรรทัดเดียวกันเสมอ) --- */}
+          {/* --- แถบตัวค้นหา & ตัวกรอง --- */}
           <div className="p-3 sm:p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
-            
-            {/* กล่องค้นหาด้วยเลขบิล */}
             <div className="relative w-full max-w-[200px] sm:max-w-xs">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 absolute left-3 top-2.5 text-slate-400">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
               </svg>
-              <input 
-                type="text" 
-                placeholder="ค้นหาบิล..." 
+              <input
+                type="text"
+                placeholder="ค้นหาบิล..."
                 value={searchReceipt}
                 onChange={(e) => setSearchReceipt(e.target.value)}
                 className="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all shadow-sm"
               />
             </div>
 
-            {/* Dropdown กรองวันที่ */}
             <div className="flex items-center gap-1.5 shrink-0">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="m-1 w-4 h-4 sm:w-5 sm:h-5 text-slate-500 shrink-0">                 
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />               
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="m-1 w-4 h-4 sm:w-5 sm:h-5 text-slate-500 shrink-0">                
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />              
               </svg>
-              <select 
-                value={filterType} 
+              <select
+                value={filterType}
                 onChange={handleFilterChange}
                 className="bg-white border border-slate-300 text-slate-700 text-xs sm:text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block px-2 py-2 outline-none shadow-sm cursor-pointer w-full"
               >
@@ -195,7 +244,7 @@ function ManageSales() {
             </div>
           </div>
 
-          {/* --- ตารางบิลขนาดเล็ก Compact --- */}
+          {/* --- ตารางบิล --- */}
           <div className="overflow-x-auto">
             <table className="w-full text-xs sm:text-sm text-left text-slate-600">
               <thead className="text-[11px] sm:text-xs text-slate-500 uppercase bg-slate-100/80 border-b border-slate-200">
@@ -216,7 +265,7 @@ function ManageSales() {
                         {formatDate(sale.sale_date)}
                       </td>
                       <td className="px-4 py-3 sm:px-6 sm:py-4 text-center">
-                        <button 
+                        <button
                           onClick={() => handleViewReceipt(sale)}
                           className="inline-flex items-center gap-1 bg-slate-800 hover:bg-slate-900 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 shadow-sm"
                         >
@@ -252,8 +301,8 @@ function ManageSales() {
                 แสดงหน้าที่ <span className="font-bold text-slate-700">{currentPage}</span> จาก <span className="font-bold text-slate-700">{totalPages}</span> (รวม {filteredSales.length} บิล)
               </span>
               <div className="flex items-center gap-1">
-                <button 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
                   className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed text-[11px] sm:text-xs font-medium transition-colors"
                 >
@@ -261,23 +310,23 @@ function ManageSales() {
                 </button>
                 
                 {getPageNumbers().map((pageNum, index) => (
-                  <button 
+                  <button
                     key={index}
                     onClick={() => typeof pageNum === 'number' && setCurrentPage(pageNum)}
                     disabled={pageNum === '...'}
                     className={`px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium transition-colors
-                      ${pageNum === currentPage 
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
-                        : pageNum === '...' 
-                          ? 'border-transparent text-slate-400 cursor-default' 
+                      ${pageNum === currentPage
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : pageNum === '...'
+                          ? 'border-transparent text-slate-400 cursor-default'
                           : 'border border-slate-300 bg-white text-slate-600 hover:bg-slate-100'}`}
                   >
                     {pageNum}
                   </button>
                 ))}
 
-                <button 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
                   className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed text-[11px] sm:text-xs font-medium transition-colors"
                 >
@@ -301,25 +350,26 @@ function ManageSales() {
                 </svg>
                 รายละเอียดบิล #{selectedSale.sale_id}
               </h3>
-              <button 
-                onClick={() => setIsModalOpen(false)} 
+              <button
+                onClick={() => setIsModalOpen(false)}
                 className="text-slate-400 hover:text-red-500 font-bold text-lg leading-none transition-colors p-1"
               >
                 &times;
               </button>
             </div>
 
-            <div className="p-3 sm:p-4 overflow-y-auto bg-slate-100 flex justify-center flex-1">
-              <div 
-                id="receipt-content" 
-                className="bg-white p-5 shadow-md border border-slate-200 w-full max-w-[290px] font-mono text-xs text-slate-800 h-fit"
+            <div className="p-4 sm:p-5 overflow-y-auto bg-slate-100 flex justify-center flex-1">
+              <div
+                id="receipt-content"
+                // 🌟 แก้ไข: จัดการความกว้างและ Padding ให้ซ้ายขวาเท่ากันเป๊ะ
+                className="bg-white px-5 py-6 shadow-md border border-slate-200 w-[290px] mx-auto font-mono text-xs text-slate-800 h-fit"
               >
-                <div className="text-center mb-3">
-                  <h2 className="font-bold text-base mb-0.5">ร้าน ProjectPOti</h2>
-                  <p className="text-[10px] text-slate-400">ใบเสร็จรับเงิน / Receipt</p>
+                <div className="text-center mb-4">
+                  <h2 className="font-bold text-base mb-1">{storeName}</h2>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest">Receipt</p>
                 </div>
                 
-                <div className="border-b border-dashed border-slate-300 pb-2 mb-2 text-[11px] space-y-0.5 text-slate-600">
+                <div className="border-b border-dashed border-slate-300 pb-2 mb-3 text-[11px] space-y-1 text-slate-600">
                   <div className="flex justify-between">
                     <span>เลขที่บิล:</span>
                     <span className="font-bold text-slate-800">#{selectedSale.sale_id}</span>
@@ -334,47 +384,48 @@ function ManageSales() {
                   </div>
                 </div>
 
-                <table className="w-full text-[11px] mb-2">
+                <table className="w-full text-[11px] mb-3">
                   <thead>
                     <tr className="border-b border-dashed border-slate-300 text-slate-500">
-                      <th className="text-left py-0.5 font-normal">รายการ</th>
-                      <th className="text-center py-0.5 font-normal">จำนวน</th>
-                      <th className="text-right py-0.5 font-normal">ราคา</th>
+                      {/* 🌟 ปรับระยะคอลัมน์ให้สมดุล */}
+                      <th className="text-left py-1 font-semibold w-7/12">รายการ</th>
+                      <th className="text-center py-1 font-semibold w-2/12">จำนวน</th>
+                      <th className="text-right py-1 font-semibold w-3/12">ราคา</th>
                     </tr>
                   </thead>
                   <tbody>
                     {saleItems.map((item, index) => (
-                      <tr key={index} className="text-slate-700">
-                        <td className="py-0.5 truncate max-w-[110px]">{item.product_name}</td>
-                        <td className="text-center py-0.5">{item.quantity}</td>
-                        <td className="text-right py-0.5">{(item.price * item.quantity).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+                      <tr key={index} className="text-slate-700 border-b border-slate-100/50 last:border-0">
+                        <td className="py-1.5 pr-2 truncate max-w-[120px]">{item.product_name}</td>
+                        <td className="text-center py-1.5">{item.quantity}</td>
+                        <td className="text-right py-1.5">{(item.price * item.quantity).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
 
-                <div className="border-t border-dashed border-slate-300 pt-2">
-                  <div className="flex justify-between font-bold text-xs text-slate-900">
+                <div className="border-t border-dashed border-slate-300 pt-3">
+                  <div className="flex justify-between font-bold text-sm text-slate-900">
                     <span>ยอดรวมสุทธิ:</span>
                     <span>{Number(selectedSale.total_price).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
                   </div>
                 </div>
 
-                <div className="text-center text-[10px] text-slate-400 mt-5">
+                <div className="text-center text-[10px] text-slate-400 mt-6 pt-2 border-t border-slate-100">
                   <p>*** ขอบคุณที่ใช้บริการ ***</p>
                 </div>
               </div>
             </div>
 
             <div className="bg-white p-3 border-t border-slate-200 flex justify-end gap-1.5 shrink-0">
-              <button 
+              <button
                 onClick={() => setIsModalOpen(false)}
                 className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition-colors"
               >
                 กลับ
               </button>
               
-              <button 
+              <button
                 onClick={handlePrintPDF}
                 className="flex items-center gap-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg text-xs transition-all active:scale-95 shadow-sm"
               >
