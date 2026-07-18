@@ -177,6 +177,7 @@ const ManageProducts = () => {
           }
         : item
     ));
+    const loadingToast = toast.loading('กำลังอัปเดตข้อมูล...');
 
     try {
       // 4. ยิงข้อมูลไปให้ Backend เซฟของจริง
@@ -225,8 +226,7 @@ const ManageProducts = () => {
   return (
     <div className="h-screen w-full bg-slate-50 text-slate-800 flex flex-col overflow-hidden">
       
-      {/* 🌟 Toaster สำหรับแสดงการแจ้งเตือนมุมขวาบน */}
-      <Toaster position="top-right" reverseOrder={false} />
+      <Toaster position="top-center" reverseOrder={false} />
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-4 bg-white border-b border-slate-200 shadow-sm flex-shrink-0 gap-2 sm:gap-4">

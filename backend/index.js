@@ -3,6 +3,7 @@ const cors = require('cors');
 const multer = require('multer'); 
 const path = require('path');
 const bcrypt = require('bcrypt'); // 🌟 เพิ่ม bcrypt สำหรับระบบรักษาความปลอดภัยรหัสผ่าน
+const fs = require('fs');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 // เรียกใช้ไฟล์ตั้งค่าฐานข้อมูล
@@ -154,37 +155,45 @@ app.post('/api/users', async (req, res) => {
 });
 
 // ==========================================
-// 🛠️ API อัปเดตข้อมูลผู้ใช้งาน (แก้ไขข้อมูล & รหัสผ่าน & รูปโปรไฟล์)
+// 🛠️ API อัปเดตข้อมูลผู้ใช้งาน (แก้ไขข้อมูล & รหัสผ่าน & เคลียร์รูปเก่า)
 // ==========================================
 app.put('/api/users/:id', upload.single('profile_image'), async (req, res) => {
     try {
         const userId = req.params.id;
-        
-        // 🌟 1. ดึง currentPassword มารับค่าด้วย (ของเดิมไม่มี)
         const { username, email, role, status, currentPassword, password } = req.body;
         
         if (!username || !email || !role || !status) {
             return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
         }
 
+        // 🌟 ดึงข้อมูลรหัสผ่าน และรูปโปรไฟล์เดิมจากฐานข้อมูลมาก่อน
+        const [userRows] = await db.query('SELECT password, profile_image FROM users WHERE user_id = ?', [userId]);
+        if (userRows.length === 0) return res.status(404).json({ message: 'ไม่พบผู้ใช้งานนี้ในระบบ' });
+        
+        const oldProfileImage = userRows[0].profile_image;
         let profile_image = req.file ? req.file.filename : null;
 
-        // 🔒 2. กรณีที่ตรวจพบว่าผู้ใช้พิมพ์รหัสผ่านใหม่เข้ามา (ต้องการเปลี่ยนรหัส)
-        if (password && password.trim() !== '') {
-            
-            // วิ่งไปดึงรหัสผ่านเก่า (Hashed) จากฐานข้อมูลมาเช็คก่อน
-            const [user] = await db.query('SELECT password FROM users WHERE user_id = ?', [userId]);
-            if (user.length === 0) return res.status(404).json({ message: 'ไม่พบผู้ใช้งานนี้ในระบบ' });
+        // 🌟 ถ้ามีการเปลี่ยนรูปโปรไฟล์ใหม่ ให้สั่งลบรูปโปรไฟล์เก่าออกจากเซิร์ฟเวอร์
+        if (profile_image && oldProfileImage) {
+            const oldImagePath = path.join(__dirname, 'uploads', oldProfileImage);
+            if (fs.existsSync(oldImagePath)) {
+                fs.unlinkSync(oldImagePath);
+            }
+        }
 
-            // ใช้ bcrypt เทียบรหัสที่กรอกช่อง "รหัสปัจจุบัน" กับรหัสในฐานข้อมูล
-            const isMatch = await bcrypt.compare(currentPassword, user[0].password);
+        // กรณีต้องการเปลี่ยนรหัสผ่านพนักงาน
+        if (password && password.trim() !== '') {
+            const isMatch = await bcrypt.compare(currentPassword, userRows[0].password);
             
-            // 🚨 ถ้ารหัสเก่าไม่ตรงกัน ให้เตะกลับพร้อมส่งข้อความด่าให้หน้าบ้าน
             if (!isMatch) {
+                // 🚨 ถ้ารหัสผ่านผิด ให้ลบรูปใหม่ที่เพิ่งอัปโหลดขึ้นมาทิ้งทันทีเพื่อไม่ให้เป็นไฟล์ขยะค้างคา
+                if (profile_image) {
+                    const newImagePath = path.join(__dirname, 'uploads', profile_image);
+                    if (fs.existsSync(newImagePath)) fs.unlinkSync(newImagePath);
+                }
                 return res.status(400).json({ message: 'รหัสผ่านปัจจุบันไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง!' });
             }
 
-            // ถ้ารหัสเก่าถูกต้อง ค่อยทำการเข้ารหัสใหม่ แล้วเตรียมเซฟ
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -201,7 +210,7 @@ app.put('/api/users/:id', upload.single('profile_image'), async (req, res) => {
             await db.query(sql, values);
 
         } else {
-            // 📝 3. กรณีไม่ได้พิมพ์รหัสผ่านใหม่ (แก้ไขแค่ชื่อ, อีเมล, หรือรูป)
+            // กรณีแก้ไขแค่ชื่อ, อีเมล หรือสิทธิ์ (ไม่ได้เปลี่ยนรหัส)
             let sql = 'UPDATE users SET username=?, email=?, role=?, status=?';
             let values = [username, email, role, status];
 
@@ -215,7 +224,6 @@ app.put('/api/users/:id', upload.single('profile_image'), async (req, res) => {
             await db.query(sql, values);
         }
 
-        // ดึงชื่อไฟล์รูปใหม่ล่าสุดกลับไปอัปเดตหน้าบ้านให้สวยงาม
         const [updatedUser] = await db.query('SELECT profile_image FROM users WHERE user_id = ?', [userId]);
 
         res.json({ 
@@ -233,18 +241,30 @@ app.put('/api/users/:id', upload.single('profile_image'), async (req, res) => {
 });
 
 // ==========================================
-// 🗑️ API ลบผู้ใช้งาน
+// 🗑️ API ลบผู้ใช้งาน + ลบไฟล์รูปโปรไฟล์ทิ้ง
 // ==========================================
 app.delete('/api/users/:id', async (req, res) => {
     try {
         const userId = req.params.id;
         
+        // 🌟 1. ดึงชื่อไฟล์รูปโปรไฟล์พนักงานออกมาก่อนลบข้อมูล
+        const [userRows] = await db.query('SELECT profile_image FROM users WHERE user_id = ?', [userId]);
+        const profileImage = userRows.length > 0 ? userRows[0].profile_image : null;
+
+        // 2. ลบข้อมูลพนักงานออกจาก Database
         const sql = 'DELETE FROM users WHERE user_id = ?';
         const [result] = await db.query(sql, [userId]);
 
-        // ตรวจสอบว่าลบได้จริงไหม (เผื่อส่งไอดีที่ไม่มีอยู่จริงมา)
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'ไม่พบผู้ใช้งานนี้ในระบบ' });
+        }
+
+        // 🌟 3. สั่งลบไฟล์รูปโปรไฟล์บนโฟลเดอร์เซิร์ฟเวอร์ทิ้ง
+        if (profileImage) {
+            const imagePath = path.join(__dirname, 'uploads', profileImage);
+            if (fs.existsSync(imagePath)) {
+                fs.unlinkSync(imagePath);
+            }
         }
 
         res.json({ message: 'ลบผู้ใช้งานออกจากระบบสำเร็จ!' });
@@ -290,18 +310,25 @@ app.post('/api/categories', async (req, res) => {
 });
 
 // ==========================================
-// 🛠️ API ค้นหาข้อมูลสินค้าด้วยบาร์โค้ด (สำหรับหน้า Stock In)
+// 🛠️ API ค้นหาข้อมูลสินค้าด้วยบาร์โค้ด (อัปเกรดดึงสต็อก + แก้ปัญหาโหลดค้าง)
 // ==========================================
 app.get('/api/products/barcode/:barcode', async (req, res) => {
     try {
         const barcode = req.params.barcode;
-        const sql = 'SELECT * FROM products WHERE barcode = ?';
         
-        // 🌟 เปลี่ยนมาใช้ await db.query เหมือน API อื่นๆ ในโปรเจค
+        // 🌟 อัปเกรด SQL: ให้ JOIN ตาราง inventory เพื่อดึง quantity (จำนวนสต็อก)
+        const sql = `
+            SELECT p.*, IFNULL(i.quantity, 0) AS stock 
+            FROM products p
+            LEFT JOIN inventory i ON p.product_id = i.product_id
+            WHERE p.barcode = ?
+        `;
+        
+        // 🌟 ใช้ await db.query ให้ตรงกับโครงสร้างโปรเจคของคุณ (แก้อาการหมุนค้าง)
         const [results] = await db.query(sql, [barcode]);
         
         if (results.length > 0) {
-            // เจอสินค้า! ส่งข้อมูลกลับไป
+            // เจอสินค้า! ส่งข้อมูลกลับไป (มี .stock ติดไปด้วยแล้ว)
             return res.status(200).json(results[0]);
         } else {
             // ไม่เจอ
@@ -370,21 +397,32 @@ app.post('/api/products', upload.single('image'), async (req, res) => {
 });
 
 // ==========================================
-// 🛠️ API สำหรับแก้ไขข้อมูลสินค้า (รองรับรูปภาพ) - Method: PUT
+// 🛠️ API สำหรับแก้ไขข้อมูลสินค้า (รองรับรูปภาพ และลบรูปเก่าทิ้งอัตโนมัติ) - Method: PUT
 // ==========================================
 app.put('/api/products/:id', upload.single('image'), async (req, res) => {
     try {
         const productId = req.params.id;
         const { product_name, category_id, barcode, unit, price, product_status } = req.body; 
         
-        // บังคับค่าเริ่มต้นป้องกัน null
         const final_status = product_status || 'พร้อมขาย';
+
+        // 🌟 ดึงชื่อไฟล์รูปภาพเก่าจากฐานข้อมูลมาเตรียมไว้ก่อน
+        const [oldProduct] = await db.query('SELECT image FROM products WHERE product_id = ?', [productId]);
+        const oldImage = oldProduct.length > 0 ? oldProduct[0].image : null;
 
         let sql = "";
         let values = [];
 
-        // กรณีที่ 1: มีการอัปโหลดรูปภาพใหม่
+        // กรณีที่ 1: มีการอัปโหลดรูปภาพใหม่เข้ามาแทนที่
         if (req.file) {
+            // 🌟 สั่งลบรูปเก่าออกจากโฟลเดอร์ uploads ทันที (ถ้ามีอยู่จริง)
+            if (oldImage) {
+                const oldImagePath = path.join(__dirname, 'uploads', oldImage);
+                if (fs.existsSync(oldImagePath)) {
+                    fs.unlinkSync(oldImagePath);
+                }
+            }
+
             sql = `
                 UPDATE products 
                 SET product_name = ?, category_id = ?, barcode = ?, unit = ?, price = ?, product_status = ?, image = ? 
@@ -392,7 +430,7 @@ app.put('/api/products/:id', upload.single('image'), async (req, res) => {
             `;
             values = [product_name, category_id, barcode, unit, price, final_status, req.file.filename, productId];
         } 
-        // กรณีที่ 2: ไม่ได้เปลี่ยนรูปภาพ
+        // กรณีที่ 2: ไม่ได้เปลี่ยนรูปภาพ (แก้ไขเฉพาะข้อความ)
         else {
             sql = `
                 UPDATE products 
@@ -402,54 +440,58 @@ app.put('/api/products/:id', upload.single('image'), async (req, res) => {
             values = [product_name, category_id, barcode, unit, price, final_status, productId];
         }
 
-        // 🌟 แก้ไข: บังคับให้หลังบ้านทำงานจนเสร็จ แล้วค่อยตอบกลับ (ป้องการหลุด)
-        db.query(sql, values, (err, result) => {
-            if (err) {
-                console.error('Error updating product:', err);
-                if (err.code === 'ER_DUP_ENTRY') {
-                    // ส่งสถานะ 400 ถ้าบาร์โค้ดซ้ำ
-                    return res.status(400).json({ error: 'บาร์โค้ดนี้มีอยู่ในระบบแล้ว' });
-                }
-                // ส่งสถานะ 500 ถ้าพังจุดอื่น
-                return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการแก้ไขข้อมูลสินค้า' });
-            }
-            
-            // 🌟 สำคัญที่สุด: ส่งสถานะ 200 (สำเร็จ) กลับไปให้หน้าบ้านรับรู้
-            return res.status(200).json({ message: 'แก้ไขข้อมูลสินค้าสำเร็จ!' });
-        });
+        // สั่งอัปเดตข้อมูลด้วยระบบ await ให้เสร็จร้อยเปอร์เซ็นต์
+        await db.query(sql, values);
+        return res.status(200).json({ message: 'แก้ไขข้อมูลสินค้าสำเร็จ!' });
 
     } catch (error) {
-        console.error("Catch Error:", error);
+        console.error("🚨 เกิดข้อผิดพลาดในการแก้ไขสินค้า:", error);
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ error: 'บาร์โค้ดนี้มีอยู่ในระบบแล้ว' });
+        }
         return res.status(500).json({ error: 'ระบบหลังบ้านเกิดข้อผิดพลาด' });
     }
 });
 
 // ==========================================
-// 🛠️ API สำหรับลบสินค้า (Delete Product) - Method: DELETE
+// 🗑️ API สำหรับลบสินค้า + ลบไฟล์รูปบนเซิร์ฟเวอร์ทิ้งด้วย - Method: DELETE
 // ==========================================
-app.delete('/api/products/:id', (req, res) => {
-    const productId = req.params.id;
-    const sql = 'DELETE FROM products WHERE product_id = ?';
+app.delete('/api/products/:id', async (req, res) => {
+    try {
+        const productId = req.params.id;
 
-    db.query(sql, [productId], (err, result) => {
-        if (err) {
-            console.error('Error deleting product:', err);
-            
-            // 💡 ดัก Error สำคัญ: กรณีสินค้านี้เคยถูกรับเข้าสต็อก หรือเคยขายไปแล้ว (ติด Foreign Key)
-            if (err.code === 'ER_ROW_IS_REFERENCED_2') {
-                return res.status(400).json({ 
-                    error: 'ไม่สามารถลบสินค้านี้ได้ เนื่องจากมีประวัติการขายหรือสต็อกผูกอยู่ แนะนำให้เปลี่ยนสถานะเป็น "สินค้าหมด/เลิกขาย" แทนครับ' 
-                });
-            }
-            return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการลบสินค้า' });
-        }
+        // 🌟 1. ดึงชื่อไฟล์รูปภาพสินค้ามาก่อนที่ข้อมูลจะถูกลบหายไป
+        const [rows] = await db.query('SELECT image FROM products WHERE product_id = ?', [productId]);
+        const productImage = rows.length > 0 ? rows[0].image : null;
+
+        // 2. สั่งลบข้อมูลสินค้าออกจาก Database
+        const sql = 'DELETE FROM products WHERE product_id = ?';
+        const [result] = await db.query(sql, [productId]);
         
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'ไม่พบสินค้าที่ต้องการลบในระบบ' });
         }
         
-        res.json({ message: 'ลบสินค้าสำเร็จเรียบร้อย!' });
-    });
+        // 🌟 3. ถ้าลบข้อมูลใน DB สำเร็จ ให้เคลียร์ไฟล์ภาพในโฟลเดอร์ uploads ทันที
+        if (productImage) {
+            const imagePath = path.join(__dirname, 'uploads', productImage);
+            if (fs.existsSync(imagePath)) {
+                fs.unlinkSync(imagePath);
+            }
+        }
+        
+        return res.status(200).json({ message: 'ลบสินค้าสำเร็จเรียบร้อย!' });
+
+    } catch (error) {
+        console.error('🚨 Error deleting product:', error);
+        // ดัก Error กรณีสินค้านี้เคยถูกรับเข้าสต็อก ติด Foreign Key
+        if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+            return res.status(400).json({ 
+                error: 'ไม่สามารถลบสินค้านี้ได้ เนื่องจากมีประวัติผูกอยู่ แนะนำให้เปลี่ยนสถานะเป็น "สินค้าหมด/เลิกขาย" แทนครับ' 
+            });
+        }
+        return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการลบสินค้า' });
+    }
 });
 
 // ==========================================
@@ -607,35 +649,475 @@ app.delete('/api/stock-in/:id', async (req, res) => {
 });
 
 // ==========================================
-// 🗑️ API สำหรับลบสินค้า (Delete Product) - Method: DELETE
+// 🛒 API สำหรับบันทึกการขายสินค้า (POS) - Transactions
 // ==========================================
-app.delete('/api/products/:id', async (req, res) => {
+app.post('/api/sales', async (req, res) => {
+    const { user_id, total_price, payment_method, cart_items } = req.body;
+    
+    let connection; 
+    
     try {
-        const productId = req.params.id;
-        const sql = 'DELETE FROM products WHERE product_id = ?';
+        // 🌟 รองรับการดึง Connection แบบปลอดภัย
+        connection = typeof db.getConnection === 'function' ? await db.getConnection() : db; 
+        
+        // 🚦 เริ่มกระบวนการ Transaction
+        if (typeof connection.beginTransaction === 'function') await connection.beginTransaction();
 
-        // 🌟 เปลี่ยนมาใช้ await 
-        const [result] = await db.query(sql, [productId]);
-        
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'ไม่พบสินค้าที่ต้องการลบในระบบ' });
+        // 1. บันทึกหัวบิลลงตาราง sales
+        const finalPayment = payment_method || 'cash';
+        const [saleResult] = await connection.query(
+            `INSERT INTO sales (user_id, total_price, payment_method) VALUES (?, ?, ?)`, 
+            [user_id, total_price, finalPayment]
+        );
+        const saleId = saleResult.insertId;
+
+        // 2. วนลูปสินค้าในตะกร้าเพื่อบันทึก
+        for (const item of cart_items) {
+            // 2.1 บันทึกรายการลงบิล
+            await connection.query(
+                `INSERT INTO sale_items (sale_id, product_id, quantity, price) VALUES (?, ?, ?, ?)`,
+                [saleId, item.product_id, item.quantity, item.price]
+            );
+
+            // 2.2 ตัดยอดออกจากคลัง
+            await connection.query(
+                `UPDATE inventory SET quantity = quantity - ? WHERE product_id = ?`,
+                [item.quantity, item.product_id]
+            );
+
+            // 🌟 2.3 แก้ไขตรงนี้: เปลี่ยนคำว่า 'ขายสินค้า' เป็น 'ลด' เพื่อให้ตรงกับ ENUM ใน Database
+            await connection.query(
+                `INSERT INTO stock_logs (product_id, user_id, action, quantity) VALUES (?, ?, 'ลด', ?)`,
+                [item.product_id, user_id, item.quantity]
+            );
         }
+
+        // ✅ บันทึกลง Database จริง
+        if (typeof connection.commit === 'function') await connection.commit(); 
+        if (typeof connection.release === 'function') connection.release(); 
         
-        return res.status(200).json({ message: 'ลบสินค้าสำเร็จเรียบร้อย!' });
+        res.status(201).json({ message: 'บันทึกการขายและตัดสต็อกสำเร็จ', sale_id: saleId });
 
     } catch (error) {
-        console.error('Error deleting product:', error);
-        // 💡 ดัก Error สำคัญ: กรณีสินค้านี้เคยถูกรับเข้าสต็อก ติด Foreign Key
-        if (error.code === 'ER_ROW_IS_REFERENCED_2') {
-            return res.status(400).json({ 
-                error: 'ไม่สามารถลบสินค้านี้ได้ เนื่องจากมีประวัติผูกอยู่ แนะนำให้เปลี่ยนสถานะเป็น "สินค้าหมด/เลิกขาย" แทนครับ' 
-            });
+        // 🚨 ยกเลิกทั้งหมดถ้ามี Error
+        if (connection) {
+            if (typeof connection.rollback === 'function') await connection.rollback(); 
+            if (typeof connection.release === 'function') connection.release();
         }
-        return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการลบสินค้า' });
+        console.error('🚨 Error in POS Transaction:', error);
+        
+        if (error.code === 'ER_BAD_FIELD_ERROR') {
+            res.status(500).json({ error: 'ตารางในฐานข้อมูลขาดคอลัมน์ payment_method' });
+        } else {
+            res.status(500).json({ error: 'เกิดข้อผิดพลาด บิลนี้ถูกยกเลิกการบันทึกแล้ว' });
+        }
+    }
+});
+// ==========================================
+// 📊 API ประมวลผลข้อมูลสถิติตามช่วงเวลาจริง (สำหรับหน้ารายงานผล)
+// ==========================================
+app.get('/api/reports/sales-summary', async (req, res) => {
+    try {
+        const period = req.query.period || '7days';
+        let dateCondition = "WHERE 1=1";
+        let groupByClause = "DATE_FORMAT(sale_date, '%d/%m')"; // จัดกลุ่มรายวันเริ่มต้น
+
+        if (period === 'today') {
+            dateCondition = "WHERE DATE(sale_date) = CURDATE()";
+            groupByClause = "DATE_FORMAT(sale_date, '%H:00')"; // รายชั่วโมง
+        } else if (period === '7days') {
+            dateCondition = "WHERE sale_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+            groupByClause = "DATE_FORMAT(sale_date, '%a')"; // วันย่อ จ.-อา.
+        } else if (period === 'month') {
+            dateCondition = "WHERE MONTH(sale_date) = MONTH(NOW()) AND YEAR(sale_date) = YEAR(NOW())";
+            groupByClause = "DATE_FORMAT(sale_date, '%d/%m')";
+        } else if (period === 'year') {
+            dateCondition = "WHERE YEAR(sale_date) = YEAR(NOW())";
+            groupByClause = "DATE_FORMAT(sale_date, '%b')"; // เดือนย่อ
+        }
+
+        // 1. ดึงตัวเลขสรุปหลัก (KPI Summary)
+        const summarySql = `
+            SELECT 
+                COALESCE(SUM(total_price), 0) as totalSales,
+                COUNT(sale_id) as totalOrders,
+                COALESCE(AVG(total_price), 0) as avgOrderValue
+            FROM sales
+            ${dateCondition}
+        `;
+        const [summaryRows] = await db.query(summarySql);
+
+        // ดึงจำนวนชิ้นสินค้าที่ขายได้รวม
+        const itemsSoldSql = `
+            SELECT COALESCE(SUM(si.quantity), 0) as itemsSold
+            FROM sale_items si
+            JOIN sales s ON si.sale_id = s.sale_id
+            ${dateCondition.replace(/sale_date/g, "s.sale_date")}
+        `;
+        const [itemsSoldRows] = await db.query(itemsSoldSql);
+
+        const summaryData = {
+            totalSales: summaryRows[0].totalSales,
+            totalOrders: summaryRows[0].totalOrders,
+            avgOrderValue: summaryRows[0].avgOrderValue,
+            itemsSold: itemsSoldRows[0].itemsSold
+        };
+
+        // 🌟 2. ดึงข้อมูลทำกราฟแท่ง (Chart Data) - แก้ไข ORDER BY ตรงนี้แล้ว 🌟
+        const chartSql = `
+            SELECT ${groupByClause} as label, SUM(total_price) as revenue
+            FROM sales
+            ${dateCondition}
+            GROUP BY label
+            ORDER BY MIN(sale_date) ASC
+        `;
+        const [chartRows] = await db.query(chartSql);
+        
+        // แปลงเป็นเปอร์เซ็นต์ความสูงสำหรับแท่ง SVG บนหน้าจอ
+        const maxRevenue = Math.max(...chartRows.map(r => Number(r.revenue)), 1);
+        const chartData = chartRows.map(r => ({
+            label: r.label,
+            revenue: r.revenue,
+            percent: Math.max((Number(r.revenue) / maxRevenue) * 100, 5) // ให้มีความสูงขั้นต่ำ 5% เผื่อยอดยังน้อย
+        }));
+
+        // 3. ดึงอันดับ 3 สินค้าขายดีที่สุด (Top 3 Products)
+        const topProductsSql = `
+            SELECT 
+                p.product_name, p.unit, p.image,
+                SUM(si.quantity) as sold_qty,
+                SUM(si.quantity * si.price) as revenue
+            FROM sale_items si
+            JOIN products p ON si.product_id = p.product_id
+            JOIN sales s ON si.sale_id = s.sale_id
+            ${dateCondition.replace(/sale_date/g, "s.sale_date")}
+            GROUP BY si.product_id
+            ORDER BY sold_qty DESC
+            LIMIT 3
+        `;
+        const [productRows] = await db.query(topProductsSql);
+
+        // ส่งข้อมูลสถิติที่แท้จริงกลับไปที่หน้าบ้าน
+        res.status(200).json({
+            summary: summaryData,
+            chartData: chartData,
+            topProducts: productRows
+        });
+
+    } catch (error) {
+        console.error("Report System Error:", error);
+        res.status(500).json({ error: "เกิดข้อผิดพลาดในการประมวลผลรายงานระบบ" });
     }
 });
 
+// ==========================================
+// 📥 API ส่งออกข้อมูลยอดขายเป็นไฟล์ Excel
+// ==========================================
+app.get('/api/reports/export-excel', async (req, res) => {
+    try {
+        const period = req.query.period || '7days';
+        let dateCondition = "WHERE 1=1";
 
+        // เช็คช่วงเวลาเดียวกับที่แสดงบนกราฟ
+        if (period === 'today') {
+            dateCondition = "WHERE DATE(s.sale_date) = CURDATE()";
+        } else if (period === '7days') {
+            dateCondition = "WHERE s.sale_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+        } else if (period === 'month') {
+            dateCondition = "WHERE MONTH(s.sale_date) = MONTH(NOW()) AND YEAR(s.sale_date) = YEAR(NOW())";
+        } else if (period === 'year') {
+            dateCondition = "WHERE YEAR(s.sale_date) = YEAR(NOW())";
+        }
+
+        // 1. ดึงข้อมูลรายการขายแบบละเอียดจากฐานข้อมูล
+        const sql = `
+            SELECT 
+                s.sale_id,
+                DATE_FORMAT(s.sale_date, '%d/%m/%Y %H:%i') as formatted_date,
+                p.product_name,
+                si.quantity,
+                si.price,
+                (si.quantity * si.price) as total_price
+            FROM sales s
+            JOIN sale_items si ON s.sale_id = si.sale_id
+            JOIN products p ON si.product_id = p.product_id
+            ${dateCondition}
+            ORDER BY s.sale_date DESC
+        `;
+        const [rows] = await db.query(sql);
+
+        // 2. เรียกใช้ไลบรารี exceljs เพื่อวาดตาราง Excel
+        const ExcelJS = require('exceljs');
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('รายงานยอดขาย');
+
+        // 3. กำหนดหัวตารางของไฟล์ Excel
+        worksheet.columns = [
+            { header: 'เลขที่บิล', key: 'sale_id', width: 15 },
+            { header: 'วัน-เวลาที่ขาย', key: 'formatted_date', width: 25 },
+            { header: 'ชื่อสินค้า', key: 'product_name', width: 40 },
+            { header: 'จำนวน (ชิ้น)', key: 'quantity', width: 15 },
+            { header: 'ราคา/ชิ้น (บาท)', key: 'price', width: 20 },
+            { header: 'ยอดรวม (บาท)', key: 'total_price', width: 20 }
+        ];
+
+        // แต่งสีหัวตารางนิดหน่อยให้ดูเป็นมืออาชีพ
+        worksheet.getRow(1).font = { bold: true };
+        worksheet.getRow(1).alignment = { horizontal: 'center' };
+
+        // 4. เอาข้อมูลที่ดึงมาจาก Database ยัดใส่ Excel ทีละบรรทัด
+        rows.forEach(row => {
+            worksheet.addRow(row);
+        });
+
+        // 5. ส่งไฟล์กลับไปให้เบราว์เซอร์ดาวน์โหลด
+        res.setHeader(
+            'Content-Type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+        res.setHeader(
+            'Content-Disposition',
+            'attachment; filename=' + encodeURIComponent(`Sales_Report_${period}.xlsx`)
+        );
+
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (error) {
+        console.error("Export Excel Error:", error);
+        res.status(500).send("เกิดข้อผิดพลาดในการสร้างไฟล์ Excel");
+    }
+});
+
+// ==========================================
+// 🧾 API ดึงประวัติบิลการขายทั้งหมด (สำหรับตารางหน้าจัดการบิล)
+// ==========================================
+app.get('/api/sales', async (req, res) => {
+    try {
+        // ใช้คำสั่ง SQL ดึงข้อมูลจากตาราง sales
+        const sql = `
+            SELECT s.sale_id, s.total_price, s.sale_date, u.username
+            FROM sales s
+            LEFT JOIN users u ON s.user_id = u.user_id
+            ORDER BY s.sale_date DESC
+        `;
+        
+        const [results] = await db.query(sql);
+        
+        // ส่งข้อมูลกลับไปที่หน้าบ้าน (React)
+        res.status(200).json(results);
+
+    } catch (error) {
+        console.error("Error fetching sales data:", error);
+        // ส่ง Error กลับไป เพื่อไม่ให้เว็บค้าง
+        res.status(500).json({ error: "เซิร์ฟเวอร์มีปัญหาในการดึงข้อมูลบิล" });
+    }
+});
+
+// ==========================================
+// 🧾 API ดึงรายการสินค้าในบิลนั้นๆ (สำหรับดูสลิป)
+// ==========================================
+app.get('/api/sales/:id/items', async (req, res) => {
+    try {
+        const saleId = req.params.id;
+        
+        const sql = `
+            SELECT si.quantity, si.price, p.product_name
+            FROM sale_items si
+            LEFT JOIN products p ON si.product_id = p.product_id
+            WHERE si.sale_id = ?
+        `;
+        
+        const [results] = await db.query(sql, [saleId]);
+        res.status(200).json(results);
+
+    } catch (error) {
+        console.error("Error fetching sale items:", error);
+        res.status(500).json({ error: "ไม่สามารถดึงข้อมูลรายการสินค้าในบิลได้" });
+    }
+});
+
+// ==========================================
+// 🚨 API แจ้งเตือนสินค้าใกล้หมดอายุ / หมดอายุ
+// ==========================================
+app.get('/api/alerts/expiring', async (req, res) => {
+    // ใช้ DATEDIFF คำนวณหาวันที่เหลือ เทียบกับวันปัจจุบัน (CURDATE) 
+    // ถ้าน้อยกว่าหรือเท่ากับ 3 วัน จะดึงข้อมูลมาแสดงเตือน
+    const sql = `
+        SELECT 
+            s.stock_in_id AS alert_id, 
+            p.product_id, 
+            p.product_name, 
+            p.barcode, 
+            p.unit, 
+            s.quantity, 
+            s.expiration_date, 
+            DATEDIFF(s.expiration_date, CURDATE()) AS days_left, 
+            CASE 
+                WHEN DATEDIFF(s.expiration_date, CURDATE()) < 0 THEN 'expired' 
+                ELSE 'warning' 
+            END AS status 
+        FROM stock_in s 
+        JOIN products p ON s.product_id = p.product_id 
+        WHERE s.expiration_date IS NOT NULL 
+          AND s.quantity > 0 
+          AND DATEDIFF(s.expiration_date, CURDATE()) <= 3 
+        ORDER BY days_left ASC
+    `;
+
+    try {
+        // ใช้ await เพื่อรอรับข้อมูลกลับมา แทนการใช้ Callback
+        const [results] = await db.query(sql);
+        res.status(200).json(results);
+    } catch (err) {
+        console.error('Error fetching expiring alerts:', err);
+        return res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// ==========================================
+// 🗑️ API ตัดสต็อกสินค้าที่หมดอายุทิ้ง (อัปเกรดความปลอดภัย)
+// ==========================================
+app.post('/api/inventory/discard', async (req, res) => {
+    const { alert_id, product_id, quantity, user_id } = req.body;
+
+    if (!alert_id || !product_id || !quantity) {
+        return res.status(400).json({ error: 'ข้อมูลไม่ครบถ้วน' });
+    }
+
+    // ดึง Connection แยกออกมาเพื่อทำ Transaction (มัดรวมคำสั่ง)
+    const connection = await db.getConnection();
+
+    try {
+        // เริ่มต้น Transaction
+        await connection.beginTransaction();
+
+        // 1. ปรับจำนวนในล็อตนั้น (stock_in) ให้เป็น 0 (เพราะนำของไปทิ้ง)
+        const updateStockInSql = `UPDATE stock_in SET quantity = 0 WHERE stock_in_id = ?`;
+        await connection.query(updateStockInSql, [alert_id]);
+
+        // 2. หักยอดรวมในตาราง inventory ออก
+        const updateInventorySql = `UPDATE inventory SET quantity = quantity - ? WHERE product_id = ?`;
+        await connection.query(updateInventorySql, [quantity, product_id]);
+
+        // 3. บันทึกประวัติลง stock_logs ป้องกันพนักงานทุจริต
+        const insertLogSql = `
+            INSERT INTO stock_logs (product_id, user_id, action, quantity) 
+            VALUES (?, ?, 'ลด (สินค้าหมดอายุ)', ?)
+        `;
+        // ใส่ user_id || 1 เผื่อกรณีหน้าบ้านหลุด ไม่ได้ส่ง user_id มา จะได้ไม่ Error
+        await connection.query(insertLogSql, [product_id, user_id || 1, quantity]);
+
+        // ✅ ถ้าผ่านครบทั้ง 3 ขั้นตอน ให้ยืนยันการบันทึกข้อมูล (Commit)
+        await connection.commit();
+        res.status(200).json({ message: 'ตัดสต็อกสินค้าหมดอายุสำเร็จ!' });
+
+    } catch (error) {
+        // 🚨 ถ้ามี Error ขั้นตอนใดก็ตาม ให้ยกเลิกการเปลี่ยนแปลงทั้งหมด (Rollback)
+        await connection.rollback();
+        console.error('Error discarding product:', error);
+        res.status(500).json({ error: 'เกิดข้อผิดพลาดในการตัดสต็อก' });
+
+    } finally {
+        // คืน Connection กลับสู่ระบบเสมอ
+        connection.release();
+    }
+});
+
+// ==========================================
+// 📦 API สำหรับหน้าดูจำนวนสินค้าในคลัง (Inventory)
+// ==========================================
+app.get('/api/inventory', async (req, res) => {
+    try {
+        // ใช้ JOIN เพื่อดึงข้อมูลสินค้า (ชื่อ, รูป, บาร์โค้ด) มาประกอบกับ ยอดคงเหลือใน inventory
+        const sql = `
+            SELECT 
+                i.inventory_id,
+                i.quantity,
+                i.min_quantity,
+                p.product_id,
+                p.barcode,
+                p.product_name,
+                p.image,
+                p.unit,
+                c.category_name
+            FROM inventory i
+            JOIN products p ON i.product_id = p.product_id
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            ORDER BY i.quantity ASC; -- เรียงลำดับให้ของที่ใกล้หมดหรือหมดแล้วขึ้นมาก่อน
+        `;
+        
+        const [rows] = await db.query(sql);
+        res.status(200).json(rows);
+    } catch (err) {
+        console.error("Error fetching inventory list:", err);
+        res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลคลังสินค้า' });
+    }
+});
+
+// ==========================================
+// 🛠️ API อัปเดตจุดสั่งซื้อขั้นต่ำ (min_quantity) ในคลังสินค้า
+// ==========================================
+app.put('/api/inventory/min-qty/:id', async (req, res) => {
+    try {
+        const inventoryId = req.params.id;
+        const { min_quantity } = req.body;
+        
+        if (min_quantity === undefined || min_quantity === null || min_quantity < 0) {
+            return res.status(400).json({ error: 'กรุณาระบุจำนวนขั้นต่ำให้ถูกต้อง' });
+        }
+
+        const sql = 'UPDATE inventory SET min_quantity = ? WHERE inventory_id = ?';
+        await db.query(sql, [min_quantity, inventoryId]);
+        res.status(200).json({ message: 'อัปเดตขั้นต่ำสำเร็จ!' });
+        
+    } catch (err) {
+        console.error('Error updating min_quantity:', err);
+        res.status(500).json({ error: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล' });
+    }
+});
+
+// ==========================================
+// 🏪 API ดึงข้อมูลและตั้งค่าร้านค้า (Store Settings)
+// ==========================================
+
+// 1. ดึงข้อมูลมาโชว์ในป๊อปอัป
+app.get('/api/store-settings', (req, res) => {
+    db.query('SELECT * FROM store_settings WHERE id = 1', (err, results) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (results.length > 0) {
+            res.json(results[0]);
+        } else {
+            res.json({ store_name: 'ร้านของฉัน', promptpay_qr: null });
+        }
+    });
+});
+
+// 2. บันทึกข้อมูลและอัปโหลดรูป QR Code ใหม่
+app.put('/api/store-settings', upload.single('qr_image'), (req, res) => {
+    const { store_name } = req.body;
+    
+    let sql = '';
+    let values = [];
+
+    // ถ้ามีการแนบรูปภาพ QR Code มาด้วย
+    if (req.file) {
+        sql = 'UPDATE store_settings SET store_name = ?, promptpay_qr = ? WHERE id = 1';
+        values = [store_name, req.file.filename];
+    } else {
+        // ถ้าเปลี่ยนแค่ชื่อร้าน ไม่ได้เปลี่ยนรูป
+        sql = 'UPDATE store_settings SET store_name = ? WHERE id = 1';
+        values = [store_name];
+    }
+
+    db.query(sql, values, (err, result) => {
+        if (err) {
+            console.error('Error updating store settings:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        res.status(200).json({ message: 'อัปเดตข้อมูลร้านค้าเรียบร้อยแล้ว' });
+    });
+});
 
 // ==========================================
 // เริ่มรันเซิร์ฟเวอร์

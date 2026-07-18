@@ -140,6 +140,16 @@ function ManageStockIn() {
   const totalPages = Math.ceil(filteredStock.length / itemsPerPage);
   const currentItems = filteredStock.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+  // 🌟 ฟังก์ชันคำนวณจุดไข่ปลาของ Pagination (1 ... 4 5 6 ... 12)
+  const getPageNumbers = () => {
+    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    
+    if (currentPage <= 3) return [1, 2, 3, 4, '...', totalPages];
+    if (currentPage >= totalPages - 2) return [1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    
+    return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans relative overflow-x-hidden">
       
@@ -294,21 +304,48 @@ function ManageStockIn() {
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* 🌟 Pagination ตัวใหม่ ดีไซน์สวยงาม มี ... ตรงกลาง */}
         {totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-between gap-3 pt-2">
-            <span className="text-xs text-slate-500">หน้า {currentPage} จาก {totalPages}</span>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 text-[11px] font-medium">ก่อนหน้า</button>
-              {[...Array(totalPages)].map((_, index) => {
-                const pageNum = index + 1;
-                return (
-                  <button key={pageNum} onClick={() => setCurrentPage(pageNum)} className={`w-7 h-7 rounded-lg text-[11px] font-medium transition-all ${currentPage === pageNum ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'border border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}>
+          <div className="mt-5 flex flex-col items-center justify-center gap-3 pt-4 border-t border-slate-200">
+            {/* ข้อความบอกหน้า */}
+            <span className="text-xs font-semibold text-slate-500">
+              หน้า {currentPage} จาก {totalPages}
+            </span>
+            
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                disabled={currentPage === 1} 
+                className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-[11px] sm:text-xs font-bold transition-all shadow-sm"
+              >
+                ก่อนหน้า
+              </button>
+              
+              {getPageNumbers().map((pageNum, index) => (
+                pageNum === '...' ? (
+                  <span key={`ellipsis-${index}`} className="px-1 text-slate-400 font-bold text-sm">...</span>
+                ) : (
+                  <button 
+                    key={pageNum} 
+                    onClick={() => setCurrentPage(pageNum)} 
+                    className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
+                      currentPage === pageNum 
+                        ? 'bg-blue-600 text-white border border-blue-600 shadow-md transform scale-105' 
+                        : 'border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 hover:border-slate-400 shadow-sm'
+                    }`}
+                  >
                     {pageNum}
                   </button>
-                );
-              })}
-              <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 text-[11px] font-medium">ถัดไป</button>
+                )
+              ))}
+
+              <button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                disabled={currentPage === totalPages} 
+                className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-[11px] sm:text-xs font-bold transition-all shadow-sm"
+              >
+                ถัดไป
+              </button>
             </div>
           </div>
         )}

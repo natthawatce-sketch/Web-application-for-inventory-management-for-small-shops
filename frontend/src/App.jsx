@@ -11,6 +11,10 @@ import ProfilePage from './pages/ProfilePage'
 import ManageProducts from './pages/ManageProducts'
 import ManageStockIn from './pages/ManageStockIn'
 import AddStockIn from './pages/AddStockIn'
+import SellProduct from './pages/SellProduct'
+import SalesReport from './pages/SalesReport'
+import ManageSales from './pages/ManageSales'
+import Inventory from './pages/Inventory'
 
 function App() {
   return (
@@ -26,6 +30,10 @@ function App() {
           <Route path="/ManageProducts" element={<ManageProducts />} />
           <Route path="/ManageStockIn" element={<ManageStockIn />} />
           <Route path="/add-stock-in" element={<AddStockIn />} />
+          <Route path="/SellProduct" element={<SellProduct />} />
+          <Route path="/SalesReport" element={<SalesReport />} />
+          <Route path="/ManageSales" element={<ManageSales />} />
+          <Route path="/Inventory" element={<Inventory />} />
 
         </Route>
 
