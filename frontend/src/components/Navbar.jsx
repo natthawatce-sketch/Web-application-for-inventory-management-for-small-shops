@@ -11,13 +11,14 @@ const Navbar = () => {
   
   // 🔔 State สำหรับแจ้งเตือน (เข้าสู่ระบบ / บันทึกร้านค้าสำเร็จ)
   const [showAlert, setShowAlert] = useState(false);
-  const [showSaveSuccess, setShowSaveSuccess] = useState(false); // 🌟 State ใหม่สำหรับแจ้งเตือนบันทึกร้านค้าตรงกลางจอ
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false); 
 
   // 🏪 State สำหรับป๊อปอัปตั้งค่าร้านค้า
   const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
   const [storeName, setStoreName] = useState('');
   const [qrFile, setQrFile] = useState(null);
   const [qrPreview, setQrPreview] = useState(null);
+  const [isStoreLoading, setIsStoreLoading] = useState(false); // 🌟 State ใหม่: สำหรับรอโหลดข้อมูลร้านค้าปัจจุบันก่อนแสดงผล
 
   // 1. ปิดเมนูดรอปดาวน์เมื่อคลิกที่อื่น
   useEffect(() => {
@@ -51,26 +52,36 @@ const Navbar = () => {
     }
   }, []);
 
-  // 🏪 🌟 ฟังก์ชันเปิดป๊อปอัป และ "ดึงข้อมูลปัจจุบัน" มาแสดง
+  // 🏪 🌟 ฟังก์ชันเปิดป๊อปอัป และ "ดึงข้อมูลปัจจุบัน" มาแสดงผลให้ถูกต้องครบถ้วน
   const openStoreModal = () => {
     setIsOpen(false); // หุบ Dropdown ก่อน
-    setIsStoreModalOpen(true); // เปิดหน้าต่าง Modal
-    setQrFile(null); // เคลียร์ไฟล์รูปที่อาจจะเลือกค้างไว้
+    setIsStoreModalOpen(true); // เปิดหน้าต่าง Modal 
+    setIsStoreLoading(true); // เริ่มต้นการโหลดข้อมูล
+    setQrFile(null); // เคลียร์ไฟล์รูปที่เลือกใหม่ค้างไว้
+    setStoreName(''); // เคลียร์ชื่อร้านเก่าใน State ชั่วคราวป้องกันข้อมูลเก่าค้าง
+    setQrPreview(null); // เคลียร์ Preview เก่า
 
-    // วิ่งไปขอข้อมูลปัจจุบันจากหลังบ้าน
-    fetch('http://localhost:5000/api/store-settings')
-      .then(res => res.json())
+    // วิ่งไปขอข้อมูลปัจจุบันจากหลังบ้านมาแสดง
+    fetch('http://localhost:5000/api/store-settings', { cache: 'no-store' }) // ดักทางเบราว์เซอร์จำ Cache เก่า
+      .then(res => {
+        if (!res.ok) throw new Error("Network response was not ok");
+        return res.json();
+      })
       .then(data => {
         if (data) {
-          setStoreName(data.store_name || ''); // เอาชื่อร้านปัจจุบันมาใส่ช่อง
+          setStoreName(data.store_name || ''); // เอาชื่อร้านปัจจุบันมาแปะใส่กล่อง
           if (data.promptpay_qr) {
-            setQrPreview(`http://localhost:5000/uploads/${data.promptpay_qr}`); // เอารูปปัจจุบันมาโชว์
-          } else {
-            setQrPreview(null);
+            // ดึงลิงก์รูปภาพ QR ปัจจุบันจาก Backend มารองรับ Preview ทันที
+            setQrPreview(`http://localhost:5000/uploads/${data.promptpay_qr}`); 
           }
         }
       })
-      .catch(err => console.error("Error fetching store data:", err));
+      .catch(err => {
+        console.error("Error fetching store data:", err);
+      })
+      .finally(() => {
+        setIsStoreLoading(false); // โหลดข้อมูลเสร็จสิ้น ปิดสถานะกำลังโหลด
+      });
   };
 
   // 🏪 ฟังก์ชันพรีวิวรูป QR Code เวลาเลือกรูปใหม่
@@ -82,9 +93,9 @@ const Navbar = () => {
     }
   };
 
-  // 🏪 🌟 ฟังก์ชันบันทึกข้อมูลร้านค้า (อัปเกรดแจ้งเตือนตรงกลางจอ)
+  // 🏪 🌟 ฟังก์ชันบันทึกข้อมูลร้านค้า
   const handleSaveStore = async () => {
-    if (!storeName) {
+    if (!storeName.trim()) {
       alert("กรุณากรอกชื่อร้านค้า");
       return;
     }
@@ -286,62 +297,72 @@ const Navbar = () => {
             </div>
 
             {/* Body Modal */}
-            <div className="p-7 space-y-6">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" /></svg>
-                  ชื่อร้านค้า (แสดงบนใบเสร็จ)
-                </label>
-                <input 
-                  type="text" 
-                  value={storeName} 
-                  onChange={(e) => setStoreName(e.target.value)} 
-                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 bg-slate-50 transition-all font-medium text-slate-800"
-                  placeholder="เช่น ร้านสะดวกซื้อ ProjectPOti"
-                />
+            {isStoreLoading ? (
+              /* 🌟 หน้าต่าง Loading ลอยสวยๆ ระหว่างรอหลังบ้านส่งข้อมูลปัจจุบันมาแสดง */
+              <div className="p-10 flex flex-col items-center justify-center space-y-3 h-80">
+                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm font-semibold text-slate-500">กำลังดึงข้อมูลร้านค้าปัจจุบัน...</p>
               </div>
+            ) : (
+              <div className="p-7 space-y-6">
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" /></svg>
+                    ชื่อร้านค้า (แสดงบนใบเสร็จ)
+                  </label>
+                  <input 
+                    type="text" 
+                    value={storeName} 
+                    onChange={(e) => setStoreName(e.target.value)} 
+                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 bg-slate-50 transition-all font-medium text-slate-800"
+                    placeholder="เช่น ร้านสะดวกซื้อ ProjectPOti"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2.5 flex items-center gap-1.5">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5zM15 15h.008v.008H15V15zM18.75 18.75h.008v.008h-.008v-.008zM15 18.75h.008v.008H15v-.008zM18.75 15h.008v.008h-.008V15z" /></svg>
-                  QR Code รับเงิน (PromptPay / ธนาคาร)
-                </label>
-                
-                <div className="border-2 border-dashed border-blue-200 hover:border-blue-400 rounded-2xl h-56 w-full flex flex-col items-center justify-center bg-blue-50/50 relative overflow-hidden group transition-colors">
-                  {qrPreview ? (
-                    <img src={qrPreview} alt="QR Code" className="h-full w-full object-contain p-3 bg-white" />
-                  ) : (
-                    <div className="text-slate-400 flex flex-col items-center">
-                      <div className="p-3 bg-white rounded-full shadow-sm mb-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-blue-300"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5zM15 15h.008v.008H15V15zM18.75 18.75h.008v.008h-.008v-.008zM15 18.75h.008v.008H15v-.008zM18.75 15h.008v.008h-.008V15z" /></svg>
-                      </div>
-                      <span className="font-medium text-slate-500">อัปโหลดรูป QR Code ที่นี่</span>
-                    </div>
-                  )}
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-2.5 flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5zM15 15h.008v.008H15V15zM18.75 18.75h.008v.008h-.008v-.008zM15 18.75h.008v.008H15v-.008zM18.75 15h.008v.008h-.008V15z" /></svg>
+                    QR Code รับเงิน (PromptPay / ธนาคาร)
+                  </label>
                   
-                  {/* ปุ่มเปลี่ยนรูปภาพทับซ้อนอยู่ด้านบน */}
-                  <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-sm">
-                    <label className="bg-white text-blue-600 px-5 py-2.5 rounded-xl font-bold text-sm cursor-pointer shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
-                      เปลี่ยนรูปภาพ
-                      <input type="file" accept="image/png, image/jpeg, image/jpg" className="hidden" onChange={handleQrChange} />
-                    </label>
+                  <div className="border-2 border-dashed border-blue-200 hover:border-blue-400 rounded-2xl h-56 w-full flex flex-col items-center justify-center bg-blue-50/50 relative overflow-hidden group transition-colors">
+                    {qrPreview ? (
+                      <img src={qrPreview} alt="QR Code" className="h-full w-full object-contain p-3 bg-white" />
+                    ) : (
+                      <div className="text-slate-400 flex flex-col items-center">
+                        <div className="p-3 bg-white rounded-full shadow-sm mb-3">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-blue-300"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5zM15 15h.008v.008H15V15zM18.75 18.75h.008v.008h-.008v-.008zM15 18.75h.008v.008H15v-.008zM18.75 15h.008v.008h-.008V15z" /></svg>
+                        </div>
+                        <span className="font-medium text-slate-500">ยังไม่มีรูป QR Code ร้านค้า</span>
+                      </div>
+                    )}
+                    
+                    {/* ปุ่มเปลี่ยนรูปภาพทับซ้อนอยู่ด้านบน */}
+                    <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-sm">
+                      <label className="bg-white text-blue-600 px-5 py-2.5 rounded-xl font-bold text-sm cursor-pointer shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
+                        อัปโหลดรูปใหม่
+                        <input type="file" accept="image/png, image/jpeg, image/jpg" className="hidden" onChange={handleQrChange} />
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Footer Modal */}
             <div className="bg-slate-50 px-6 py-5 border-t border-slate-200 flex justify-end gap-3">
               <button 
                 onClick={() => setIsStoreModalOpen(false)} 
                 className="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 transition-colors"
+                disabled={isStoreLoading}
               >
                 ยกเลิก
               </button>
               <button 
                 onClick={handleSaveStore} 
-                className="px-6 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
+                className="px-6 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2 disabled:bg-slate-300"
+                disabled={isStoreLoading}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
                 บันทึกข้อมูล

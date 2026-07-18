@@ -1078,45 +1078,50 @@ app.put('/api/inventory/min-qty/:id', async (req, res) => {
 });
 
 // ==========================================
-// 🏪 API ดึงข้อมูลและตั้งค่าร้านค้า (Store Settings)
+// 🏪 API ดึงข้อมูลร้านค้า (GET)
 // ==========================================
-
-// 1. ดึงข้อมูลมาโชว์ในป๊อปอัป
-app.get('/api/store-settings', (req, res) => {
-    db.query('SELECT * FROM store_settings WHERE id = 1', (err, results) => {
-        if (err) return res.status(500).json({ error: 'Database error' });
+app.get('/api/store-settings', async (req, res) => {
+    try {
+        const [results] = await db.query('SELECT * FROM store_settings WHERE id = 1');
         if (results.length > 0) {
             res.json(results[0]);
         } else {
-            res.json({ store_name: 'ร้านของฉัน', promptpay_qr: null });
+            res.json({});
         }
-    });
+    } catch (error) {
+        console.error("Error fetching store settings:", error);
+        res.status(500).json({ error: 'Server Error' });
+    }
 });
 
-// 2. บันทึกข้อมูลและอัปโหลดรูป QR Code ใหม่
-app.put('/api/store-settings', upload.single('qr_image'), (req, res) => {
-    const { store_name } = req.body;
-    
-    let sql = '';
-    let values = [];
+// ==========================================
+// 🏪 API บันทึกข้อมูลร้านค้าและ QR Code (PUT)
+// ==========================================
+// ใช้ upload.single('qr_image') เพราะหน้าบ้านตั้งชื่อไฟล์ที่แนบมาว่า qr_image
+app.put('/api/store-settings', upload.single('qr_image'), async (req, res) => {
+    try {
+        const { store_name } = req.body;
+        let sql = "";
+        let values = [];
 
-    // ถ้ามีการแนบรูปภาพ QR Code มาด้วย
-    if (req.file) {
-        sql = 'UPDATE store_settings SET store_name = ?, promptpay_qr = ? WHERE id = 1';
-        values = [store_name, req.file.filename];
-    } else {
+        // ถ้ามีการอัปโหลดรูป QR Code มาใหม่
+        if (req.file) {
+            sql = `UPDATE store_settings SET store_name = ?, promptpay_qr = ? WHERE id = 1`;
+            values = [store_name, req.file.filename];
+        } 
         // ถ้าเปลี่ยนแค่ชื่อร้าน ไม่ได้เปลี่ยนรูป
-        sql = 'UPDATE store_settings SET store_name = ? WHERE id = 1';
-        values = [store_name];
-    }
-
-    db.query(sql, values, (err, result) => {
-        if (err) {
-            console.error('Error updating store settings:', err);
-            return res.status(500).json({ error: 'Database error' });
+        else {
+            sql = `UPDATE store_settings SET store_name = ? WHERE id = 1`;
+            values = [store_name];
         }
-        res.status(200).json({ message: 'อัปเดตข้อมูลร้านค้าเรียบร้อยแล้ว' });
-    });
+
+        await db.query(sql, values);
+        res.status(200).json({ message: 'อัปเดตข้อมูลร้านค้าสำเร็จ!' });
+
+    } catch (error) {
+        console.error("Error updating store settings:", error);
+        res.status(500).json({ error: 'Server Error' });
+    }
 });
 
 // ==========================================
