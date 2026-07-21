@@ -940,9 +940,7 @@ app.get('/api/sales/:id/items', async (req, res) => {
 // ==========================================
 // 🚨 API แจ้งเตือนสินค้าใกล้หมดอายุ / หมดอายุ
 // ==========================================
-app.get('/api/alerts/expiring', async (req, res) => {
-    // ใช้ DATEDIFF คำนวณหาวันที่เหลือ เทียบกับวันปัจจุบัน (CURDATE) 
-    // ถ้าน้อยกว่าหรือเท่ากับ 3 วัน จะดึงข้อมูลมาแสดงเตือน
+ app.get('/api/alerts/expiring', async (req, res) => {
     const sql = `
         SELECT 
             s.stock_in_id AS alert_id, 
@@ -950,7 +948,7 @@ app.get('/api/alerts/expiring', async (req, res) => {
             p.product_name, 
             p.barcode, 
             p.unit, 
-            s.quantity, 
+            LEAST(s.quantity, i.quantity) AS quantity, -- 🌟 ตรงนี้คือหัวใจสำคัญ! เลือกค่าน้อยสุดระหว่างล็อตที่รับมา กับของที่เหลือในคลังจริง
             s.expiration_date, 
             DATEDIFF(s.expiration_date, CURDATE()) AS days_left, 
             CASE 
@@ -959,14 +957,15 @@ app.get('/api/alerts/expiring', async (req, res) => {
             END AS status 
         FROM stock_in s 
         JOIN products p ON s.product_id = p.product_id 
+        JOIN inventory i ON p.product_id = i.product_id -- 🌟 ต้อง Join กับ inventory เพื่อดูยอดปัจจุบันด้วย
         WHERE s.expiration_date IS NOT NULL 
           AND s.quantity > 0 
+          AND i.quantity > 0 -- 🌟 ดักไว้ว่าของในคลัง (inventory) ต้องมีมากกว่า 0 ถึงจะโชว์แจ้งเตือน
           AND DATEDIFF(s.expiration_date, CURDATE()) <= 3 
         ORDER BY days_left ASC
     `;
 
-    try {
-        // ใช้ await เพื่อรอรับข้อมูลกลับมา แทนการใช้ Callback
+     try {
         const [results] = await db.query(sql);
         res.status(200).json(results);
     } catch (err) {
@@ -983,43 +982,44 @@ app.post('/api/inventory/discard', async (req, res) => {
 
     if (!alert_id || !product_id || !quantity) {
         return res.status(400).json({ error: 'ข้อมูลไม่ครบถ้วน' });
-    }
-
-    // ดึง Connection แยกออกมาเพื่อทำ Transaction (มัดรวมคำสั่ง)
+     }
     const connection = await db.getConnection();
 
-    try {
-        // เริ่มต้น Transaction
+     try {
         await connection.beginTransaction();
 
-        // 1. ปรับจำนวนในล็อตนั้น (stock_in) ให้เป็น 0 (เพราะนำของไปทิ้ง)
+        // 🌟 1. เช็คยอดคงเหลือปัจจุบันใน inventory ก่อน
+        const [invRows] = await connection.query('SELECT quantity FROM inventory WHERE product_id = ?', [product_id]);
+        const currentInvQty = invRows.length > 0 ? invRows[0].quantity : 0;
+
+        // 🌟 2. หาค่าที่จะต้องลบทิ้งจริงๆ (ป้องกันไม่ให้ลบเกินยอดที่มีในคลัง เช่น หน้าเว็บส่งมา 10 แต่คลังเหลือ 5 ก็ให้ลบแค่ 5)
+        const discardQty = Math.min(quantity, currentInvQty);
+
+        // 3. ปรับจำนวนในล็อตนั้น (stock_in) ให้เป็น 0 (เพราะจัดการเคลียร์ของหมดอายุไปแล้ว)
         const updateStockInSql = `UPDATE stock_in SET quantity = 0 WHERE stock_in_id = ?`;
         await connection.query(updateStockInSql, [alert_id]);
 
-        // 2. หักยอดรวมในตาราง inventory ออก
-        const updateInventorySql = `UPDATE inventory SET quantity = quantity - ? WHERE product_id = ?`;
-        await connection.query(updateInventorySql, [quantity, product_id]);
+        // 4. หักยอดออกจาก inventory (ทำเฉพาะกรณีที่มีของเหลือให้หัก)
+        if (discardQty > 0) {
+            const updateInventorySql = `UPDATE inventory SET quantity = quantity - ? WHERE product_id = ?`;
+            await connection.query(updateInventorySql, [discardQty, product_id]);
 
-        // 3. บันทึกประวัติลง stock_logs ป้องกันพนักงานทุจริต
-        const insertLogSql = `
-            INSERT INTO stock_logs (product_id, user_id, action, quantity) 
-            VALUES (?, ?, 'ลด (สินค้าหมดอายุ)', ?)
-        `;
-        // ใส่ user_id || 1 เผื่อกรณีหน้าบ้านหลุด ไม่ได้ส่ง user_id มา จะได้ไม่ Error
-        await connection.query(insertLogSql, [product_id, user_id || 1, quantity]);
-
-        // ✅ ถ้าผ่านครบทั้ง 3 ขั้นตอน ให้ยืนยันการบันทึกข้อมูล (Commit)
+            // 🌟 5. บันทึกประวัติลง stock_logs ป้องกันพนักงานทุจริต 
+            // (แก้คำว่า 'ลด (สินค้าหมดอายุ)' กลับเป็น 'ลด' เฉยๆ เพื่อให้ฐานข้อมูลยอมรับ)
+            const insertLogSql = `
+                INSERT INTO stock_logs (product_id, user_id, action, quantity) 
+                VALUES (?, ?, 'ลด', ?)
+            `;
+            await connection.query(insertLogSql, [product_id, user_id || 1, discardQty]);
+        }
         await connection.commit();
-        res.status(200).json({ message: 'ตัดสต็อกสินค้าหมดอายุสำเร็จ!' });
+         res.status(200).json({ message: 'ตัดสต็อกสินค้าหมดอายุสำเร็จ!' });
 
-    } catch (error) {
-        // 🚨 ถ้ามี Error ขั้นตอนใดก็ตาม ให้ยกเลิกการเปลี่ยนแปลงทั้งหมด (Rollback)
+        } catch (error) {
         await connection.rollback();
         console.error('Error discarding product:', error);
         res.status(500).json({ error: 'เกิดข้อผิดพลาดในการตัดสต็อก' });
-
-    } finally {
-        // คืน Connection กลับสู่ระบบเสมอ
+        } finally {
         connection.release();
     }
 });
