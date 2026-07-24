@@ -1125,6 +1125,48 @@ app.put('/api/store-settings', upload.single('qr_image'), async (req, res) => {
 });
 
 // ==========================================
+// 🔔 API ดึงประวัติความเคลื่อนไหวสต็อกล่าสุด (สำหรับกระดิ่งแจ้งเตือน Navbar)
+// ==========================================
+app.get('/api/stock-logs/recent', async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+                sl.log_id,
+                sl.product_id,
+                sl.action,
+                sl.quantity,
+                CASE 
+                    WHEN sl.action IN ('เพิ่ม', 'รับเข้า', 'in', 'add') THEN 'add'
+                    WHEN sl.action IN ('ลด', 'ขาย', 'out', 'sell') THEN 'sell'
+                    WHEN sl.action IN ('ปรับปรุง', 'แก้ไข', 'edit') THEN 'edit'
+                    ELSE 'other'
+                END AS action_type,
+                CASE 
+                    WHEN sl.action IN ('เพิ่ม', 'รับเข้า', 'in', 'add') THEN 'ทำการเพิ่มสต็อก'
+                    WHEN sl.action IN ('ลด', 'ขาย', 'out', 'sell') THEN 'ทำการลดสต็อก'
+                    WHEN sl.action IN ('ปรับปรุง', 'แก้ไข', 'edit') THEN 'ทำการแก้ไขรายละเอียด'
+                    ELSE CONCAT('ทำการ', sl.action)
+                END AS action_detail,
+                p.product_name,
+                COALESCE(u.username, 'แอดมิน') AS user_name,
+                sl.log_date AS created_at
+            FROM stock_logs sl
+            LEFT JOIN products p ON sl.product_id = p.product_id
+            LEFT JOIN users u ON sl.user_id = u.user_id
+            ORDER BY sl.log_date DESC
+            LIMIT 100
+        `;
+        
+        const [results] = await db.query(sql);
+        res.status(200).json(results);
+
+    } catch (err) {
+        console.error('Error fetching recent logs:', err);
+        return res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// ==========================================
 // เริ่มรันเซิร์ฟเวอร์
 // ==========================================
 const PORT = process.env.PORT || 5000;
