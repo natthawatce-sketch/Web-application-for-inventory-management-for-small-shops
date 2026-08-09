@@ -938,39 +938,50 @@ app.get('/api/sales/:id/items', async (req, res) => {
 });
 
 // ==========================================
-// 🚨 API แจ้งเตือนสินค้าใกล้หมดอายุ / หมดอายุ
+// 🚨 API แจ้งเตือนสินค้าใกล้หมดอายุ (อัปเกรด โชว์ยอดตัดจริงแบบ FIFO)
 // ==========================================
- app.get('/api/alerts/expiring', async (req, res) => {
-    const sql = `
-        SELECT 
-            s.stock_in_id AS alert_id, 
-            p.product_id, 
-            p.product_name, 
-            p.barcode, 
-            p.unit, 
-            LEAST(s.quantity, i.quantity) AS quantity, -- 🌟 ตรงนี้คือหัวใจสำคัญ! เลือกค่าน้อยสุดระหว่างล็อตที่รับมา กับของที่เหลือในคลังจริง
-            s.expiration_date, 
-            DATEDIFF(s.expiration_date, CURDATE()) AS days_left, 
-            CASE 
-                WHEN DATEDIFF(s.expiration_date, CURDATE()) < 0 THEN 'expired' 
-                ELSE 'warning' 
-            END AS status 
-        FROM stock_in s 
-        JOIN products p ON s.product_id = p.product_id 
-        JOIN inventory i ON p.product_id = i.product_id -- 🌟 ต้อง Join กับ inventory เพื่อดูยอดปัจจุบันด้วย
-        WHERE s.expiration_date IS NOT NULL 
-          AND s.quantity > 0 
-          AND i.quantity > 0 -- 🌟 ดักไว้ว่าของในคลัง (inventory) ต้องมีมากกว่า 0 ถึงจะโชว์แจ้งเตือน
-          AND DATEDIFF(s.expiration_date, CURDATE()) <= 3 
-        ORDER BY days_left ASC
-    `;
-
-     try {
+app.get('/api/alerts/expiring', async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+                si.stock_in_id AS alert_id, 
+                p.product_id, 
+                p.product_name, 
+                p.barcode, 
+                p.unit,
+                si.expiration_date,
+                DATEDIFF(si.expiration_date, CURDATE()) AS days_left,
+                CASE 
+                    WHEN DATEDIFF(si.expiration_date, CURDATE()) < 0 THEN 'expired' 
+                    ELSE 'expiring' 
+                END AS status,
+                
+                -- 🌟 ท่าไม้ตาย FIFO: คำนวณหักลบยอดขายจากล็อตเก่าสุดไปหาใหม่สุด
+                (si.quantity - LEAST(
+                    si.quantity, 
+                    GREATEST(0, 
+                        ( (SELECT SUM(quantity) FROM stock_in s2 WHERE s2.product_id = si.product_id AND (s2.status IS NULL OR s2.status != 'discarded')) - i.quantity ) 
+                        - 
+                        COALESCE((SELECT SUM(quantity) FROM stock_in s3 WHERE s3.product_id = si.product_id AND (s3.status IS NULL OR s3.status != 'discarded') AND s3.stock_in_id < si.stock_in_id), 0)
+                    )
+                )) AS quantity 
+                
+            FROM stock_in si
+            JOIN products p ON si.product_id = p.product_id
+            JOIN inventory i ON p.product_id = i.product_id
+            WHERE si.expiration_date IS NOT NULL 
+              AND (si.status IS NULL OR si.status != 'discarded') 
+              AND DATEDIFF(si.expiration_date, CURDATE()) <= 3
+            HAVING quantity > 0
+            ORDER BY days_left ASC
+        `;
+        
         const [results] = await db.query(sql);
         res.status(200).json(results);
-    } catch (err) {
-        console.error('Error fetching expiring alerts:', err);
-        return res.status(500).json({ error: 'Database error' });
+
+    } catch (error) {
+        console.error("Error fetching expiry alerts:", error);
+        res.status(500).json({ error: "เกิดข้อผิดพลาดในการดึงข้อมูลแจ้งเตือน" });
     }
 });
 
@@ -982,10 +993,10 @@ app.post('/api/inventory/discard', async (req, res) => {
 
     if (!alert_id || !product_id || !quantity) {
         return res.status(400).json({ error: 'ข้อมูลไม่ครบถ้วน' });
-     }
+    }
     const connection = await db.getConnection();
 
-     try {
+    try {
         await connection.beginTransaction();
 
         // 🌟 1. เช็คยอดคงเหลือปัจจุบันใน inventory ก่อน
@@ -995,8 +1006,9 @@ app.post('/api/inventory/discard', async (req, res) => {
         // 🌟 2. หาค่าที่จะต้องลบทิ้งจริงๆ (ป้องกันไม่ให้ลบเกินยอดที่มีในคลัง เช่น หน้าเว็บส่งมา 10 แต่คลังเหลือ 5 ก็ให้ลบแค่ 5)
         const discardQty = Math.min(quantity, currentInvQty);
 
-        // 3. ปรับจำนวนในล็อตนั้น (stock_in) ให้เป็น 0 (เพราะจัดการเคลียร์ของหมดอายุไปแล้ว)
-        const updateStockInSql = `UPDATE stock_in SET quantity = 0 WHERE stock_in_id = ?`;
+        // 🌟🌟 3. แก้ไขตรงนี้: เปลี่ยนสถานะเป็น 'discarded' แทนการแก้ quantity ให้เป็น 0
+        // (ประวัติเดิมจะได้ยังอยู่ครบถ้วน)
+        const updateStockInSql = `UPDATE stock_in SET status = 'discarded' WHERE stock_in_id = ?`;
         await connection.query(updateStockInSql, [alert_id]);
 
         // 4. หักยอดออกจาก inventory (ทำเฉพาะกรณีที่มีของเหลือให้หัก)
@@ -1005,21 +1017,21 @@ app.post('/api/inventory/discard', async (req, res) => {
             await connection.query(updateInventorySql, [discardQty, product_id]);
 
             // 🌟 5. บันทึกประวัติลง stock_logs ป้องกันพนักงานทุจริต 
-            // (แก้คำว่า 'ลด (สินค้าหมดอายุ)' กลับเป็น 'ลด' เฉยๆ เพื่อให้ฐานข้อมูลยอมรับ)
             const insertLogSql = `
                 INSERT INTO stock_logs (product_id, user_id, action, quantity) 
                 VALUES (?, ?, 'ลด', ?)
             `;
             await connection.query(insertLogSql, [product_id, user_id || 1, discardQty]);
         }
+        
         await connection.commit();
-         res.status(200).json({ message: 'ตัดสต็อกสินค้าหมดอายุสำเร็จ!' });
+        res.status(200).json({ message: 'ตัดสต็อกสินค้าหมดอายุสำเร็จ!' });
 
-        } catch (error) {
+    } catch (error) {
         await connection.rollback();
         console.error('Error discarding product:', error);
         res.status(500).json({ error: 'เกิดข้อผิดพลาดในการตัดสต็อก' });
-        } finally {
+    } finally {
         connection.release();
     }
 });

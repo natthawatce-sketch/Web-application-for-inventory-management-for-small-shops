@@ -189,7 +189,7 @@ const Dashboard = () => {
                   <div 
                     key={item.alert_id} 
                     className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border-l-4 shadow-sm bg-white ${
-                      item.status === 'expired' 
+                      item.days_left <= 0 
                         ? 'border-red-500 border ' // สีแดง (สำหรับของที่หมดอายุแล้ว)
                         : 'border-orange-400 border ' // สีส้ม (ใกล้หมด)
                     }`}
@@ -216,7 +216,7 @@ const Dashboard = () => {
 
                     {/* ปุ่มจัดการ */}
                     <div className="shrink-0 flex items-center justify-end sm:pl-2 sm:pt-6 lg:pl-2 lg:pt-6 ">
-                      {item.status === 'expired' ? (
+                      {item.days_left <= 0 ? (
                         <button 
                           onClick={() => handleDiscardItem(item.alert_id, item.product_id, item.quantity, item.barcode)}
                           className="bg-red-500 hover:bg-red-600 text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
