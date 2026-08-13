@@ -68,7 +68,7 @@ const Navbar = () => {
   useEffect(() => {
     const fetchStockLogs = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/stock-logs/recent");
+        const res = await fetch("/api/stock-logs/recent");
         if (res.ok) {
           const data = await res.json();
           setStockLogs(data);
@@ -186,7 +186,7 @@ const Navbar = () => {
     setStoreName("");
     setQrPreview(null);
 
-    fetch("http://localhost:5000/api/store-settings", { cache: "no-store" })
+    fetch("/api/store-settings", { cache: "no-store" })
       .then((res) => {
         if (!res.ok) throw new Error("Network response was not ok");
         return res.json();
@@ -195,7 +195,7 @@ const Navbar = () => {
         if (data) {
           setStoreName(data.store_name || "");
           if (data.promptpay_qr) {
-            setQrPreview(`http://localhost:5000/uploads/${data.promptpay_qr}`);
+            setQrPreview(`/uploads/${data.promptpay_qr}`);
           }
         }
       })
@@ -219,7 +219,7 @@ const Navbar = () => {
     if (qrFile) formData.append("qr_image", qrFile);
 
     try {
-      const response = await fetch("http://localhost:5000/api/store-settings", {
+      const response = await fetch("/api/store-settings", {
         method: "PUT",
         body: formData,
       });
@@ -379,7 +379,7 @@ const Navbar = () => {
                 <img
                   src={
                     profileImage
-                      ? `http://localhost:5000/uploads/${profileImage}`
+                      ? `/uploads/${profileImage}`
                       : `https://ui-avatars.com/api/?name=${username || "User"}&background=eff6ff&color=1d4ed8&size=100`
                   }
                   alt="Profile"
@@ -394,7 +394,7 @@ const Navbar = () => {
                   <img
                     src={
                       profileImage
-                        ? `http://localhost:5000/uploads/${profileImage}`
+                        ? `/uploads/${profileImage}`
                         : `https://ui-avatars.com/api/?name=${username || "User"}&background=eff6ff&color=1d4ed8&size=100`
                     }
                     alt="Profile"

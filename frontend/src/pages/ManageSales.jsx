@@ -35,7 +35,7 @@ function ManageSales() {
 
   const fetchSalesData = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/sales');
+      const response = await fetch('/api/sales');
       if (response.ok) {
         const data = await response.json();
         setSales(data);
@@ -51,7 +51,7 @@ function ManageSales() {
   // ดึงข้อมูลชื่อร้านจาก Backend
   const fetchStoreSettings = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/store-settings');
+      const response = await fetch('/api/store-settings');
       if (response.ok) {
         const data = await response.json();
         const storeData = Array.isArray(data) ? data[0] : data;
@@ -118,7 +118,7 @@ function ManageSales() {
     setIsModalOpen(true);
     
     try {
-      const response = await fetch(`http://localhost:5000/api/sales/${sale.sale_id}/items`);
+      const response = await fetch(`/api/sales/${sale.sale_id}/items`);
       if (response.ok) {
         const items = await response.json();
         setSaleItems(items);

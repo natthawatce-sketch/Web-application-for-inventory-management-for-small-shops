@@ -31,7 +31,7 @@ const Dashboard = () => {
   // 🔍 ฟังก์ชันดึงข้อมูลจากหลังบ้าน
   const fetchExpiryAlerts = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/alerts/expiring');
+      const response = await fetch('/api/alerts/expiring');
       if (response.ok) {
         const data = await response.json();
         setExpiryItems(data);
@@ -49,7 +49,7 @@ const Dashboard = () => {
     const userId = localStorage.getItem('user_id') || 1;
 
     try {
-      const response = await fetch('http://localhost:5000/api/inventory/discard', {
+      const response = await fetch('/api/inventory/discard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
