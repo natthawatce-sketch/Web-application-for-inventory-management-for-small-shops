@@ -245,7 +245,7 @@ function AddStockIn() {
                 <input type="date" name="expiration_date" value={formData.expiration_date} onChange={handleInputChange} disabled={!productInfo} className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 sm:px-3 py-2 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all disabled:opacity-50 text-slate-800 font-bold text-sm" />
               </div>
 
-              <div className="sm:col-span-3 lg:col-span-1 flex items-end mt-1 sm:mt-2 lg:mt-0">
+              <div className="sm:col-span-3 lg:col-span-1 flex items-end mt-1 sm:mt-2  lg:mt-0 ml-8 mr-8">
                 <button type="submit" disabled={!productInfo} className="w-full h-10 sm:h-[38px] bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95 flex justify-center items-center gap-1.5 text-sm">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                   บันทึกสต็อก

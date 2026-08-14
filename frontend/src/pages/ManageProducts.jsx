@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast, Toaster } from 'react-hot-toast'; // 🌟 Import Toast เข้ามาใช้งาน
+import toast, { Toaster } from 'react-hot-toast';
 
 const ManageProducts = () => {
   const navigate = useNavigate();
 
-  // --- States ---
+  // --- สิทธิ์ผู้ใช้งาน ---
+  const userRole = localStorage.getItem('user_role');
+  const isAdmin = userRole?.toLowerCase() === 'admin';
+
+  // --- States ข้อมูล ---
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // --- Filters ---
   const [filterCategory, setFilterCategory] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -32,12 +36,15 @@ const ManageProducts = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // --- Modals ---
+  // --- Modals States ---
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
   // --- Form Data ---
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  
   const [formData, setFormData] = useState({
     product_name: '',
     barcode: '',
@@ -75,13 +82,14 @@ const ManageProducts = () => {
     }
   };
 
+  // --- ระบบกรองและค้นหา ---
   const filteredProducts = products.filter(product => {
     const matchesSearch = 
       product.product_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.barcode?.includes(searchQuery);
-    
+
     const matchesCategory = filterCategory === '' || String(product.category_id) === filterCategory;
-    
+
     const currentStatus = product.product_status || 'พร้อมขาย';
     const matchesStatus = filterStatus === '' || currentStatus === filterStatus;
 
@@ -92,6 +100,7 @@ const ManageProducts = () => {
     setCurrentPage(1);
   }, [searchQuery, filterCategory, filterStatus]);
 
+  // --- คำนวณ Pagination ---
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -99,10 +108,8 @@ const ManageProducts = () => {
 
   const getPageNumbers = () => {
     if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
-    
     if (currentPage <= 3) return [1, 2, 3, 4, '...', totalPages];
     if (currentPage >= totalPages - 2) return [1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-    
     return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
   };
 
@@ -139,10 +146,8 @@ const ManageProducts = () => {
     setIsConfirmModalOpen(true);
   };
 
-  
-  // 🌟 ฟังก์ชันอัปเดตข้อมูลแบบสมบูรณ์ (เปลี่ยนทั้งข้อความและรูปภาพทันที)
+  // 🌟 ฟังก์ชันอัปเดตข้อมูลแบบสมบูรณ์
   const handleConfirmUpdate = async () => {
-    // 1. หุบหน้าต่างแก้ไขและยืนยันทันที
     setIsConfirmModalOpen(false);
     setIsEditModalOpen(false);
 
@@ -153,15 +158,15 @@ const ManageProducts = () => {
     dataToSend.append('price', formData.price);
     dataToSend.append('unit', formData.unit);
     dataToSend.append('product_status', formData.product_status);
-    
-    // 💡 เตรียมเก็บ URL ชั่วคราวของรูปภาพ (ถ้ามีการเปลี่ยนรูป)
+
+    // เก็บ URL ชั่วคราวของรูปภาพ (ถ้ามีการเปลี่ยนรูป)
     let tempImageUrl = null;
     if (formData.image instanceof File) {
       dataToSend.append('image', formData.image);
-      tempImageUrl = URL.createObjectURL(formData.image); // สร้าง URL ชั่วคราวให้หน้าเว็บเอาไปแสดงก่อน
+      tempImageUrl = URL.createObjectURL(formData.image);
     }
 
-    // 🌟 3. Optimistic Update: เปลี่ยนค่าบนตารางหน้าจอ "ทันที" 
+    // 🌟 Optimistic Update: เปลี่ยนค่าบนตารางหน้าจอ "ทันที" ให้ดูรวดเร็ว
     setProducts(prevList => prevList.map(item => 
       String(item.product_id) === String(selectedProduct.product_id) 
         ? { 
@@ -172,15 +177,14 @@ const ManageProducts = () => {
             price: formData.price,
             unit: formData.unit,
             product_status: formData.product_status || 'พร้อมขาย',
-            // 💡 ถ้ามีการเลือกรูปใหม่ ให้เปลี่ยนรูปในตารางเป็นรูปชั่วคราวทันที! 
             ...(tempImageUrl && { image_preview_temp: tempImageUrl }) 
           }
         : item
     ));
+
     const loadingToast = toast.loading('กำลังอัปเดตข้อมูล...');
 
     try {
-      // 4. ยิงข้อมูลไปให้ Backend เซฟของจริง
       const response = await fetch(`/api/products/${selectedProduct.product_id}`, {
         method: 'PUT',
         body: dataToSend
@@ -188,12 +192,12 @@ const ManageProducts = () => {
 
       if (!response.ok) {
         toast.error('เกิดข้อผิดพลาด บาร์โค้ดอาจซ้ำกันในระบบ', { id: loadingToast });
-        fetchProducts(); // โหลดใหม่ถ้าพัง
+        fetchProducts(); 
         return; 
       }
 
       toast.success('แก้ไขข้อมูลสินค้าสำเร็จ!', { id: loadingToast });
-      fetchProducts();
+      fetchProducts(); 
 
     } catch (error) {
       console.error('Error updating product:', error);
@@ -202,35 +206,41 @@ const ManageProducts = () => {
     }
   };
 
-  // 🌟 ฟังก์ชันลบข้อมูล
-  const handleDeleteProduct = async (productId, productName) => {
-    if (window.confirm(`คุณแน่ใจหรือไม่ที่จะลบสินค้า "${productName}" ออกจากคลัง?`)) {
-      const loadingToast = toast.loading('กำลังลบข้อมูล...');
-      try {
-        const response = await fetch(`/api/products/${productId}`, {
-          method: 'DELETE'
-        });
-        if (response.ok) {
-          toast.success('ลบข้อมูลสินค้าสำเร็จ', { id: loadingToast });
-          fetchProducts(); // โหลดข้อมูลใหม่มาแสดงทันที
-        } else {
-          toast.error('ไม่สามารถลบสินค้าได้ เนื่องจากมีประวัติการขาย', { id: loadingToast });
-        }
-      } catch (error) {
-        console.error('Error deleting product:', error);
-        toast.error('เกิดข้อผิดพลาดในการลบข้อมูล', { id: loadingToast });
+  // 🌟 ฟังก์ชันเปิด Modal ลบ
+  const handleDeleteClick = (product) => {
+    setItemToDelete(product);
+    setIsDeleteModalOpen(true);
+  };
+
+  // 🌟 ฟังก์ชันยืนยันการลบ
+  const confirmDelete = async () => {
+    setIsDeleteModalOpen(false);
+    if (!itemToDelete) return;
+
+    const loadingToast = toast.loading('กำลังลบข้อมูล...');
+    try {
+      const response = await fetch(`/api/products/${itemToDelete.product_id}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        toast.success('ลบข้อมูลสินค้าสำเร็จ', { id: loadingToast });
+        fetchProducts(); 
+      } else {
+        toast.error('ไม่สามารถลบสินค้าได้ เนื่องจากมีการผูกกับประวัติอื่นๆ', { id: loadingToast });
       }
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error('เกิดข้อผิดพลาดในการลบข้อมูล', { id: loadingToast });
     }
   };
 
   return (
     <div className="h-screen w-full bg-slate-50 text-slate-800 flex flex-col overflow-hidden">
-      
+
       <Toaster position="top-center" reverseOrder={false} />
 
-      {/* Header */}
+      {/* --- Header --- */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-4 bg-white border-b border-slate-200 shadow-sm flex-shrink-0 gap-2 sm:gap-4">
-        
         {/* ซ้าย: ปุ่มย้อนกลับ */}
         <div className="flex-1 flex justify-start">
             <button 
@@ -245,7 +255,7 @@ const ManageProducts = () => {
             </button>
         </div>
 
-        {/* กลาง: ไอคอน + ข้อความ */}
+        {/* กลาง: ข้อความ */}
         <div className="flex-1 flex flex-col justify-center items-center text-center mx-2">
             <h1 className="text-sm sm:text-lg md:text-xl font-bold text-slate-800 flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600">
@@ -258,26 +268,28 @@ const ManageProducts = () => {
             </p>
         </div>
 
-        {/* ขวา: ปุ่มเพิ่มสินค้า */}
+       {/* ขวา: ปุ่มเพิ่มสินค้า */}
         <div className="flex-1 flex justify-end">
+          {isAdmin && (
             <button 
-            onClick={() => navigate('/add-product')}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-3 sm:px-4 py-2 rounded-lg shadow-sm flex items-center gap-1.5 sm:gap-2 transition-all text-xs sm:text-sm whitespace-nowrap"
+              onClick={() => navigate('/add-product')}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-3 sm:px-4 py-2 rounded-lg shadow-sm flex items-center gap-1.5 sm:gap-2 transition-all text-xs sm:text-sm whitespace-nowrap"
             >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            <span>เพิ่มสินค้า<span className="hidden sm:inline">ใหม่</span></span>
+              </svg>
+              <span>เพิ่มสินค้า<span className="hidden sm:inline">ใหม่</span></span>
             </button>
+          )}
         </div>
       </div>
 
-      {/* พื้นที่เนื้อหาที่ Scroll ได้ */}
+      {/* --- Main Content --- */}
       <div className="flex-1 p-3 sm:p-6 overflow-y-auto custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-2 sm:space-y-6">
-          
+
           {/* Filters Section */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-1 sm:gap-4 bg-white p-1 rounded-xl shadow-sm border border-gray-200">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-1 sm:gap-4 bg-white p-1 sm:p-4 rounded-xl shadow-sm border border-gray-200">
             {/* Search */}
             <div className="md:col-span-2 flex items-center gap-3 border border-slate-300 px-4 py-2 sm:py-2.5 rounded-lg focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all bg-white">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400">
@@ -299,7 +311,7 @@ const ManageProducts = () => {
                 onChange={(e) => setFilterCategory(e.target.value)}
                 className="w-full border border-slate-300 px-4 py-2 sm:py-2.5 rounded-lg bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm appearance-none text-slate-700"
               >
-                <option value="">ประเภท</option>
+                <option value="">ทุกประเภท</option>
                 {categories.map(c => (
                   <option key={c.category_id} value={c.category_id}>{c.category_name}</option>
                 ))}
@@ -316,9 +328,9 @@ const ManageProducts = () => {
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="w-full border border-slate-300 px-4 py-2 sm:py-2.5 rounded-lg bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm appearance-none text-slate-700"
               >
-                <option value="">สถานะ</option>
+                <option value="">ทุกสถานะ</option>
                 <option value="พร้อมขาย">พร้อมขาย</option>
-                <option value="หมด">สินค้าหมด</option>
+                <option value="หมด">หมด (สินค้าหมด)</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
@@ -328,13 +340,13 @@ const ManageProducts = () => {
 
           {/* Table & Card Section */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-            
+
             {/* Desktop View */}
             <div className="hidden lg:block overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[800px]">
                 <thead>
                   <tr className="bg-slate-100 text-slate-600 text-sm font-semibold border-b border-slate-200">
-                    <th className="p-4 w-24">รูปภาพ</th>
+                    <th className="p-4 w-24 text-center">รูปภาพ</th>
                     <th className="p-4">รหัสบาร์โค้ด</th>
                     <th className="p-4">ชื่อสินค้า</th>
                     <th className="p-4">ประเภท</th>
@@ -348,8 +360,7 @@ const ManageProducts = () => {
                   {currentProducts.map((product) => (
                     <tr key={product.product_id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-4">
-                        <div className="w-12 h-12 rounded-md border border-slate-200 overflow-hidden bg-white flex items-center justify-center">
-                          {/* 🌟 เช็คก่อนว่ามีรูปชั่วคราว (image_preview_temp) ไหม ถ้ามีให้โชว์ก่อน */}
+                        <div className="w-12 h-12 rounded-md border border-slate-200 overflow-hidden bg-white flex items-center justify-center mx-auto">
                           {product.image_preview_temp ? (
                             <img src={product.image_preview_temp} alt={product.product_name} className="w-full h-full object-cover" />
                           ) : product.image ? (
@@ -378,14 +389,18 @@ const ManageProducts = () => {
                         )}
                       </td>
                       <td className="p-4">
-                        <div className="flex justify-center items-center gap-2">
-                          <button onClick={() => handleEditClick(product)} className="p-1.5 bg-white border border-slate-300 text-slate-600 hover:text-blue-600 hover:border-blue-400 rounded-md transition-colors shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
-                          </button>
-                          <button onClick={() => handleDeleteProduct(product.product_id, product.product_name)} className="p-1.5 bg-white border border-slate-300 text-slate-600 hover:text-red-600 hover:border-red-400 rounded-md transition-colors shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                          </button>
-                        </div>
+                        {isAdmin ? (
+                          <div className="flex justify-center items-center gap-2">
+                            <button onClick={() => handleEditClick(product)} className="p-1.5 bg-white border border-slate-300 text-slate-600 hover:text-blue-600 hover:border-blue-400 rounded-md transition-colors shadow-sm">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
+                            </button>
+                            <button onClick={() => handleDeleteClick(product)} className="p-1.5 bg-white border border-slate-300 text-slate-600 hover:text-red-600 hover:border-red-400 rounded-md transition-colors shadow-sm">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex justify-center text-slate-300 font-bold">-</div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -402,9 +417,8 @@ const ManageProducts = () => {
             <div className="block lg:hidden divide-y divide-slate-100 flex-1">
               {currentProducts.map((product) => (
                 <div key={product.product_id} className="p-3 sm:p-4 flex gap-3 sm:gap-4 items-start bg-white hover:bg-slate-50 transition-colors">
-                  
+
                   <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-md border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center bg-slate-50">
-                    {/* 🌟 เช็ครูปชั่วคราวสำหรับมือถือ */}
                     {product.image_preview_temp ? (
                       <img src={product.image_preview_temp} alt={product.product_name} className="w-full h-full object-cover" />
                     ) : product.image ? (
@@ -428,22 +442,24 @@ const ManageProducts = () => {
                         <span className="bg-slate-100 text-slate-600 text-[10px] sm:text-xs px-2 py-0.5 rounded-md font-medium border border-slate-200">
                           {categories.find(c => String(c.category_id) === String(product.category_id))?.category_name || 'ทั่วไป'}
                         </span>
-                        
+
                         {(!product.product_status || product.product_status === 'พร้อมขาย') ? (
                           <span className="text-[10px] sm:text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 font-semibold">พร้อมขาย</span>
                         ) : (
                           <span className="text-[10px] sm:text-xs text-red-700 bg-red-50 px-2 py-0.5 rounded-md border border-red-200 font-semibold">หมด</span>
                         )}
                       </div>
-                      
-                      <div className="flex gap-1.5">
-                        <button onClick={() => handleEditClick(product)} className="p-1.5 sm:p-2 border border-slate-300 text-slate-600 hover:text-blue-600 rounded-md bg-white shadow-sm">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
-                        </button>
-                        <button onClick={() => handleDeleteProduct(product.product_id, product.product_name)} className="p-1.5 sm:p-2 border border-slate-300 text-slate-600 hover:text-red-600 rounded-md bg-white shadow-sm">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                        </button>
-                      </div>
+
+                      {isAdmin && (
+                        <div className="flex gap-1.5">
+                          <button onClick={() => handleEditClick(product)} className="p-1.5 sm:p-2 border border-slate-300 text-slate-600 hover:text-blue-600 rounded-md bg-white shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
+                          </button>
+                          <button onClick={() => handleDeleteClick(product)} className="p-1.5 sm:p-2 border border-slate-300 text-slate-600 hover:text-red-600 rounded-md bg-white shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -461,7 +477,7 @@ const ManageProducts = () => {
                   แสดงหน้าที่ {currentPage} จาก {totalPages} (รวม {filteredProducts.length} รายการ)
                 </span>
                 <div className="flex items-center gap-1.5 sm:gap-2">
-                  
+
                   <button 
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
                     disabled={currentPage === 1} 
@@ -503,11 +519,13 @@ const ManageProducts = () => {
         </div>
       </div>
 
-      {/* Edit Modal */}
+      {/* --- Modals --- */}
+      
+      {/* 1. Edit Modal */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-[100] overflow-y-auto flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh]">
-            
+
             <div className="p-4 sm:p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
               <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-blue-600"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
@@ -519,7 +537,6 @@ const ManageProducts = () => {
             </div>
 
             <form onSubmit={handleSaveClick} className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1 text-sm text-slate-700 custom-scrollbar">
-              
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">รูปภาพสินค้า</label>
                 <div className="flex items-center gap-4 bg-slate-50 p-3 sm:p-4 rounded-lg border border-dashed border-slate-300">
@@ -581,7 +598,7 @@ const ManageProducts = () => {
                     className="w-full border border-slate-300 rounded-lg px-3 py-2 sm:px-4 sm:py-2.5 outline-none bg-slate-50 focus:bg-white font-medium text-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
                   >
                     <option value="พร้อมขาย">พร้อมขาย</option>
-                    <option value="หมด">หมด</option>
+                    <option value="หมด">หมด (สินค้าหมด)</option>
                   </select>
                 </div>
               </div>
@@ -595,7 +612,7 @@ const ManageProducts = () => {
         </div>
       )}
 
-      {/* Confirmation Modal */}
+      {/* 2. Confirmation Edit Modal */}
       {isConfirmModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white w-full max-w-sm rounded-xl shadow-xl border border-slate-200 p-5 sm:p-6 text-center">
@@ -606,14 +623,35 @@ const ManageProducts = () => {
             <p className="text-xs sm:text-sm text-slate-500 mt-2">
               คุณต้องการบันทึกการแก้ไขข้อมูลสินค้านี้ลงในระบบใช่หรือไม่?
             </p>
-            
+
             <div className="flex gap-2 sm:gap-3 justify-center mt-6 sm:mt-8">
-              <button onClick={() => setIsConfirmModalOpen(false)} className="px-4 py-2 sm:px-5 sm:py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 font-medium rounded-lg transition-colors w-full text-xs sm:text-sm">ย้อนกลับ</button>
+              <button onClick={() => setIsConfirmModalOpen(false)} className="px-4 py-2 sm:px-5 sm:py-2.5 bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-medium rounded-lg transition-colors w-full text-xs sm:text-sm">ยกเลิก</button>
               <button onClick={handleConfirmUpdate} className="px-4 py-2 sm:px-5 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors w-full text-xs sm:text-sm">ยืนยัน</button>
             </div>
           </div>
         </div>
       )}
+
+      {/* 3. Delete Confirmation Modal (แทน window.confirm) */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-sm rounded-xl shadow-xl border border-slate-200 p-5 sm:p-6 text-center">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-5 border border-red-100">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-7 h-7 sm:w-8 sm:h-8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            </div>
+            <h3 className="text-lg sm:text-xl font-bold text-slate-800">ยืนยันการลบสินค้า</h3>
+            <p className="text-xs sm:text-sm text-slate-500 mt-2">
+              คุณต้องการลบ <strong>"{itemToDelete?.product_name}"</strong> <br/>ออกจากคลังสินค้าใช่หรือไม่?
+            </p>
+
+            <div className="flex gap-2 sm:gap-3 justify-center mt-6 sm:mt-8">
+              <button onClick={() => setIsDeleteModalOpen(false)} className="px-4 py-2 sm:px-5 sm:py-2.5 bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-medium rounded-lg transition-colors w-full text-xs sm:text-sm">ยกเลิก</button>
+              <button onClick={confirmDelete} className="px-4 py-2 sm:px-5 sm:py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg shadow-sm transition-colors w-full text-xs sm:text-sm">ลบทิ้ง</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

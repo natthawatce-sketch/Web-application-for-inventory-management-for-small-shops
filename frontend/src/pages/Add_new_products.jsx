@@ -9,31 +9,42 @@ function Add_new_products() {
   const [price, setPrice] = useState("");
   const [unit, setUnit] = useState("");
   const [imageFile, setImageFile] = useState(null); 
-  const [categories, setCategories] = useState([]); // สำหรับเก็บหมวดหมู่จากหลังบ้าน
+  const [categories, setCategories] = useState([]); 
   const navigate = useNavigate();
 
-  // รวม useEffect สำหรับดึงหมวดหมู่สินค้า และตั้งค่าสแกนเนอร์
   useEffect(() => {
-    // 1. ดึงข้อมูลหมวดหมู่สินค้าจาก Backend
     const fetchCategories = async () => {
       try {
         const response = await fetch(`/api/categories`);
         const data = await response.json();
-        setCategories(data); // เอาข้อมูลที่ได้ไปเก็บใน state categories
+        setCategories(data); 
       } catch (error) {
         console.error("เกิดข้อผิดพลาดในการดึงหมวดหมู่:", error);
       }
     };
-
     fetchCategories();
-  }, []); // ปิด useEffect อย่างถูกต้อง
+  }, []); 
 
   const onScanSuccess = (decodedText) => {
     setBarcode(decodedText);
   };
 
+  // 🌟 ฟังก์ชันใหม่: ดึงเลขบาร์โค้ดอัตโนมัติจากหลังบ้าน
+  const generateBarcode = async () => {
+    try {
+      const response = await fetch('/api/products/generate-barcode');
+      if (response.ok) {
+        const data = await response.json();
+        setBarcode(data.barcode); // นำเลขที่ได้จากหลังบ้านมาใส่ในช่อง Input อัตโนมัติ
+      } else {
+        alert("ไม่สามารถสร้างบาร์โค้ดได้ กรุณาลองใหม่");
+      }
+    } catch (error) {
+      console.error("Error generating barcode:", error);
+      alert("เซิร์ฟเวอร์มีปัญหา ไม่สามารถสร้างบาร์โค้ดได้");
+    }
+  };
 
-  // ฟังก์ชันส่งข้อมูล (FormData)
   const handleSaveProduct = async () => {
     if (!productName || !categoryId || !barcode || !price || !unit) {
       alert("กรุณากรอกข้อมูลสินค้าให้ครบถ้วนครับ!");
@@ -80,7 +91,6 @@ function Add_new_products() {
     <div className="min-h-screen w-full overflow-y-auto bg-white pb-10">
       <div className='flex items-center bg-blue-900 h-16 w-auto   '>
         <div className='w-1/2'>
-          {/* ซ้าย: ปุ่มย้อนกลับ */}
         <div className="m-5 flex-1 flex justify-start">
             <button 
             onClick={() => navigate('/ManageProducts')}
@@ -104,14 +114,28 @@ function Add_new_products() {
       </div>
 
       <div className='mx-10 xl:mx-72'>
-        <p className='text-center text-gray-500 mb-2'>- - - หรือกรอกบาร์โค้ดเอง - - -</p>
-        <input 
-          type="text" 
-          value={barcode} 
-          onChange={(e) => setBarcode(e.target.value)}
-          placeholder="คลิกสแกนด้านบน หรือ พิมพ์เลขบาร์โค้ดที่นี่"
-          className="border-2 border-gray-300 rounded-md p-2 w-full focus:border-blue-500 outline-none"
-        />
+        <p className='text-center text-gray-500 mb-2'>- - - สแกน / กรอกเอง / สร้างอัตโนมัติ - - -</p>
+        
+        {/* 🌟 ปรับปรุงช่องกรอกบาร์โค้ด ให้มีปุ่มอยู่ข้างๆ */}
+        <div className="flex gap-2 mb-3">
+          <input 
+            type="text" 
+            value={barcode} 
+            onChange={(e) => setBarcode(e.target.value)}
+            placeholder="สแกนบาร์โค้ด พิมพ์บาร์โค้ด หรือกดปุ่ม ->"
+            className="border-2 border-gray-300 rounded-md p-2 w-full focus:border-blue-500 outline-none font-mono text-slate-800  placeholder:text-xs"
+          />
+          <button 
+            type="button"
+            onClick={generateBarcode}
+            className="bg-slate-100 text-slate-500 border border-slate-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 font-bold px-4 py-2 rounded-md transition-all duration-300 whitespace-nowrap flex items-center gap-1.5 shadow-sm active:scale-95"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            {/* ใส่ข้อความตรงนี้ได้นะครับ ถ้ามี */}
+          </button>
+        </div>
         
         <div className="w-full my-3">
           <label className="block text-sm font-medium text-gray-700 mb-1">รูปภาพสินค้า</label>
@@ -131,7 +155,6 @@ function Add_new_products() {
           className="mb-3 border-2 border-gray-300 rounded-md p-2 w-full focus:border-blue-500 outline-none"
         />
         
-        {/* ส่วนที่แก้ไข: ดึงข้อมูลหมวดหมู่แบบ Dynamic มาแสดงผล */}
         <select 
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
@@ -172,9 +195,9 @@ function Add_new_products() {
         <button 
           type="button" 
           onClick={handleSaveProduct}
-          className='bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-8 rounded-md transition-colors'
+          className='bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-md active:scale-95'
         >
-          บันทึกข้อมูล
+          บันทึกข้อมูลสินค้า
         </button>
       </div>
     </div>

@@ -1179,6 +1179,37 @@ app.get('/api/stock-logs/recent', async (req, res) => {
 });
 
 // ==========================================
+// 🛠️ API สร้างรหัสบาร์โค้ดภายในร้านอัตโนมัติ (Running Number)
+// ==========================================
+app.get('/api/products/generate-barcode', async (req, res) => {
+    try {
+        // คำสั่ง SQL: หาค่าบาร์โค้ดตัวเลขที่มากที่สุด ที่ขึ้นต้นด้วย '20' และมีความยาว 8 หลัก
+        const sql = `
+            SELECT MAX(CAST(barcode AS UNSIGNED)) as max_barcode 
+            FROM products 
+            WHERE barcode LIKE '20%' AND LENGTH(barcode) = 8
+        `;
+        
+        // 🌟 เปลี่ยนมาใช้ await [results] แทน Callback แบบเก่า
+        const [results] = await db.query(sql);
+        
+        const maxBarcode = results[0].max_barcode;
+        let nextBarcode = '20000001'; // กำหนดค่าเริ่มต้น ถ้าในร้านยังไม่มีบาร์โค้ดรหัส 20xxxxxx เลย
+
+        if (maxBarcode) {
+            // ถ้ามีข้อมูลอยู่แล้ว เอาตัวเลขมาบวก 1 แล้วแปลงกลับเป็น String
+            nextBarcode = (maxBarcode + 1).toString();
+        }
+
+        res.status(200).json({ barcode: nextBarcode });
+
+    } catch (error) {
+        console.error('Error generating barcode:', error);
+        return res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// ==========================================
 // เริ่มรันเซิร์ฟเวอร์
 // ==========================================
 const PORT = process.env.PORT || 5000;
