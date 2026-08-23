@@ -15,6 +15,7 @@ import SellProduct from './pages/SellProduct'
 import SalesReport from './pages/SalesReport'
 import ManageSales from './pages/ManageSales'
 import Inventory from './pages/Inventory'
+import ProductHistory from './pages/ProductHistory'
 
 function App() {
   return (
@@ -42,7 +43,7 @@ function App() {
           <Route path="/add-user" element={<AddUser />} />
           <Route path="/Manage-user" element={<ManageUsers />} />
           <Route path="/add-product" element={<Add_new_products />} />
-          
+          <Route path="/product-history" element={<ProductHistory />} />
 
         </Route>
         

@@ -337,9 +337,9 @@ app.get('/api/products/barcode/:barcode', async (req, res) => {
     try {
         const barcode = req.params.barcode;
         
-        // 🌟 อัปเกรด SQL: ให้ JOIN ตาราง inventory เพื่อดึง quantity (จำนวนสต็อก)
+        // 🌟 อัปเกรด SQL: ให้ JOIN ตาราง inventory เพื่อดึง quantity (จำนวนสต็อก) และ min_quantity
         const sql = `
-            SELECT p.*, IFNULL(i.quantity, 0) AS stock 
+            SELECT p.*, IFNULL(i.quantity, 0) AS stock, IFNULL(i.min_quantity, 5) AS min_quantity
             FROM products p
             LEFT JOIN inventory i ON p.product_id = i.product_id
             WHERE p.barcode = ?
@@ -427,15 +427,18 @@ app.put('/api/products/:id', upload.single('image'), async (req, res) => {
         
         const final_status = product_status || 'พร้อมขาย';
 
-        // 🌟 ดึงชื่อไฟล์รูปภาพเก่าจากฐานข้อมูลมาเตรียมไว้ก่อน
-        const [oldProduct] = await db.query('SELECT image FROM products WHERE product_id = ?', [productId]);
-        const oldImage = oldProduct.length > 0 ? oldProduct[0].image : null;
+        // 🌟 ดึงข้อมูลสินค้าเดิมจากฐานข้อมูลทั้งหมดมาเตรียมเปรียบเทียบ
+        const [oldProduct] = await db.query('SELECT * FROM products WHERE product_id = ?', [productId]);
+        const oldData = oldProduct.length > 0 ? oldProduct[0] : null;
+        const oldImage = oldData ? oldData.image : null;
 
         let sql = "";
         let values = [];
+        let newImageName = oldImage;
 
         // กรณีที่ 1: มีการอัปโหลดรูปภาพใหม่เข้ามาแทนที่
         if (req.file) {
+            newImageName = req.file.filename;
             // 🌟 สั่งลบรูปเก่าออกจากโฟลเดอร์ uploads ทันที (ถ้ามีอยู่จริง)
             if (oldImage) {
                 const oldImagePath = path.join(__dirname, 'uploads', oldImage);
@@ -449,7 +452,7 @@ app.put('/api/products/:id', upload.single('image'), async (req, res) => {
                 SET product_name = ?, category_id = ?, barcode = ?, unit = ?, price = ?, product_status = ?, image = ? 
                 WHERE product_id = ?
             `;
-            values = [product_name, category_id, barcode, unit, price, final_status, req.file.filename, productId];
+            values = [product_name, category_id, barcode, unit, price, final_status, newImageName, productId];
         } 
         // กรณีที่ 2: ไม่ได้เปลี่ยนรูปภาพ (แก้ไขเฉพาะข้อความ)
         else {
@@ -463,6 +466,30 @@ app.put('/api/products/:id', upload.single('image'), async (req, res) => {
 
         // สั่งอัปเดตข้อมูลด้วยระบบ await ให้เสร็จร้อยเปอร์เซ็นต์
         await db.query(sql, values);
+
+        // 🌟 3. บันทึกประวัติการเปลี่ยนแปลง
+        if (oldData) {
+            const changes = {};
+            if (oldData.product_name !== product_name) changes.product_name = { old: oldData.product_name, new: product_name };
+            if (String(oldData.category_id) !== String(category_id)) changes.category_id = { old: oldData.category_id, new: category_id };
+            if (oldData.barcode !== barcode) changes.barcode = { old: oldData.barcode, new: barcode };
+            if (oldData.unit !== unit) changes.unit = { old: oldData.unit, new: unit };
+            if (String(oldData.price) !== String(price)) changes.price = { old: oldData.price, new: price };
+            if (oldData.product_status !== final_status) changes.product_status = { old: oldData.product_status, new: final_status };
+            if (req.file) changes.image = { old: oldImage, new: newImageName };
+
+            // ถ้ามีอะไรเปลี่ยนจริงๆ ค่อยบันทึก
+            if (Object.keys(changes).length > 0) {
+                const userId = req.user ? req.user.user_id : null;
+                const username = req.user ? req.user.username : 'Unknown';
+                const logSql = `
+                    INSERT INTO product_history (product_id, product_name, user_id, username, action, details)
+                    VALUES (?, ?, ?, ?, 'แก้ไขข้อมูลสินค้า', ?)
+                `;
+                await db.query(logSql, [productId, product_name, userId, username, JSON.stringify(changes)]);
+            }
+        }
+
         return res.status(200).json({ message: 'แก้ไขข้อมูลสินค้าสำเร็จ!' });
 
     } catch (error) {
@@ -1229,6 +1256,49 @@ app.get('/api/products/generate-barcode', async (req, res) => {
         return res.status(500).json({ error: 'Database error' });
     }
 });
+
+// ==========================================
+// 📜 API สำหรับดึงประวัติการเปลี่ยนแปลงสินค้า
+// ==========================================
+app.get('/api/product-history', async (req, res) => {
+    try {
+        const sql = `
+            SELECT log_id, product_id, product_name, user_id, username, action, details, created_at
+            FROM product_history
+            ORDER BY created_at DESC
+        `;
+        const [results] = await db.query(sql);
+        res.status(200).json(results);
+    } catch (error) {
+        console.error('Error fetching product history:', error);
+        res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลประวัติได้' });
+    }
+});
+
+// ==========================================
+// อัปเดตฐานข้อมูลอัตโนมัติ (Auto Create Tables)
+// ==========================================
+const initDB = async () => {
+    try {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS product_history (
+                log_id INT AUTO_INCREMENT PRIMARY KEY,
+                product_id INT NOT NULL,
+                product_name VARCHAR(255) NOT NULL,
+                user_id INT,
+                username VARCHAR(255),
+                action VARCHAR(50) NOT NULL,
+                details JSON NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE CASCADE
+            )
+        `);
+        console.log('✅ ตรวจสอบและสร้างตาราง product_history เรียบร้อยแล้ว');
+    } catch (err) {
+        console.error('🚨 ไม่สามารถสร้างตาราง product_history ได้:', err);
+    }
+};
+initDB();
 
 // ==========================================
 // เริ่มรันเซิร์ฟเวอร์

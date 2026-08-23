@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import toast, { Toaster } from 'react-hot-toast'; // 🌟 1. นำเข้าระบบแจ้งเตือนแบบ Pop-up มุมจอ
+import toast, { Toaster } from 'react-hot-toast';
+import BarcodeScanner from '../components/BarcodeScanner'; // 🌟 1. นำเข้าระบบแจ้งเตือนแบบ Pop-up มุมจอ
 
 function Inventory() {
   const navigate = useNavigate();
@@ -24,6 +25,32 @@ function Inventory() {
 
   // 🌟 2. State สำหรับหน้าต่างแก้ไข "ขั้นต่ำสั่งซื้อ"
   const [editMinQtyModal, setEditMinQtyModal] = useState({ isOpen: false, item: null, newMinQty: '' });
+
+  // --- Scanner States ---
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(true);
+  const [scannedProductInfo, setScannedProductInfo] = useState(null);
+
+  const handleScanSuccess = async (barcode) => {
+    // ป้องกันการสแกนซ้ำซ้อน
+    setIsScanning(false);
+    const cleanBarcode = barcode.trim();
+    
+    try {
+      const response = await fetch(`/api/products/barcode/${cleanBarcode}`);
+      if (response.ok) {
+        const productData = await response.json();
+        setScannedProductInfo(productData);
+      } else {
+        toast.error('ไม่พบสินค้ารหัสบาร์โค้ดนี้ในระบบ');
+        setIsScanning(true);
+      }
+    } catch (error) {
+      console.error('Error scanning product:', error);
+      toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่');
+      setIsScanning(true);
+    }
+  };
 
   // 🛠️ ดึงข้อมูลจาก API
   useEffect(() => {
@@ -172,9 +199,16 @@ function Inventory() {
           จำนวนสินค้าในคลัง
         </h1>
 
-        <button onClick={() => navigate('/add-stock-in')} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 transition-all text-xs sm:text-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-          เพิ่มสต็อก
+        <button onClick={() => {
+          setIsScannerOpen(true);
+          setIsScanning(true);
+          setScannedProductInfo(null);
+        }} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 transition-all text-xs sm:text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z" />
+          </svg>
+          เช็คสต็อก
         </button>
       </div>
 
@@ -545,6 +579,112 @@ function Inventory() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+      {/* --- Scanner Modal --- */}
+      {isScannerOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-4 sm:p-5 border-b border-slate-100 bg-slate-50">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-800">เช็คสต็อกสินค้า</h3>
+                <p className="text-[11px] sm:text-xs text-slate-500 mt-1">สแกนบาร์โค้ดเพื่อดูยอดคงเหลือ</p>
+              </div>
+              <button onClick={() => {
+                setIsScannerOpen(false);
+                setIsScanning(false);
+              }} className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            
+            <div className="p-4 sm:p-6 overflow-y-auto">
+              {isScanning ? (
+                <div className="flex flex-col gap-4">
+                  <BarcodeScanner onScanSuccess={handleScanSuccess} />
+                  
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                      <div className="w-full border-t border-slate-200"></div>
+                    </div>
+                    <div className="relative flex justify-center">
+                      <span className="bg-white px-2 text-sm text-slate-500">หรือค้นหาด้วยรหัส</span>
+                    </div>
+                  </div>
+                  
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    const val = e.target.manualBarcode.value;
+                    if (val) handleScanSuccess(val);
+                  }} className="flex gap-2">
+                    <input 
+                      type="text" 
+                      name="manualBarcode" 
+                      placeholder="กรอกรหัสบาร์โค้ด..." 
+                      autoComplete="off"
+                      className="flex-1 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm"
+                    />
+                    <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 text-sm">ค้นหา</button>
+                  </form>
+                </div>
+              ) : scannedProductInfo ? (
+                <div className="bg-slate-50 rounded-xl p-4 sm:p-5 border border-slate-200 text-center animate-fade-in">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto bg-white rounded-lg border border-slate-200 p-2 shadow-sm mb-4">
+                    {scannedProductInfo.image ? (
+                      <img src={`/uploads/${scannedProductInfo.image}`} alt="Product" className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
+                      </div>
+                    )}
+                  </div>
+                  <h4 className="text-lg sm:text-xl font-bold text-slate-800 mb-1">{scannedProductInfo.product_name}</h4>
+                  <p className="text-sm text-slate-500 font-mono mb-4">{scannedProductInfo.barcode}</p>
+                  
+                  <div className="bg-white rounded-lg p-3 border border-slate-200 flex justify-between items-center mb-4">
+                    <span className="text-slate-500 font-medium text-sm">สต็อกคงเหลือ</span>
+                    <span className={`text-xl sm:text-2xl font-bold ${scannedProductInfo.stock <= (scannedProductInfo.min_quantity || 0) ? 'text-red-500' : 'text-emerald-600'}`}>
+                      {scannedProductInfo.stock} <span className="text-sm font-normal text-slate-500">{scannedProductInfo.unit}</span>
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-left bg-white rounded-lg p-3 border border-slate-200 text-xs sm:text-sm">
+                    <div>
+                      <p className="text-slate-400 mb-0.5">ราคาขาย</p>
+                      <p className="font-bold text-slate-700">฿{Number(scannedProductInfo.price).toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 mb-0.5">สถานะ</p>
+                      <p className="font-bold text-slate-700">{scannedProductInfo.product_status}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="p-4 sm:p-5 border-t border-slate-100 bg-white">
+              <button 
+                onClick={() => {
+                  if (isScanning) {
+                    setIsScannerOpen(false);
+                    setIsScanning(false);
+                  } else {
+                    // กดปุ่ม เสร็จสิ้น กลับไปสแกนต่อ
+                    setIsScanning(true);
+                    setScannedProductInfo(null);
+                  }
+                }} 
+                className={`w-full py-2.5 sm:py-3 rounded-xl font-bold text-white transition-all shadow-sm flex items-center justify-center gap-2 ${isScanning ? 'bg-slate-400 hover:bg-slate-500' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+              >
+                {isScanning ? 'ยกเลิกการสแกน' : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                    เสร็จสิ้น (สแกนชิ้นต่อไป)
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

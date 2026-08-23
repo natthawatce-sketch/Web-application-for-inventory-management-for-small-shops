@@ -2,6 +2,26 @@ import React, { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 
+// สร้าง instance นอก Component เพื่อป้องกันปัญหา Memory Leak (Canvas limit)
+let sharedCodeReader = null;
+
+function getSharedCodeReader() {
+  if (!sharedCodeReader) {
+    const hints = new Map();
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.CODE_128,
+      BarcodeFormat.UPC_A,
+      BarcodeFormat.UPC_E,
+      BarcodeFormat.CODE_39
+    ]);
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    sharedCodeReader = new BrowserMultiFormatReader(hints);
+  }
+  return sharedCodeReader;
+}
+
 function BarcodeScanner({ onScanSuccess }) {
   const videoRef = useRef(null);
   const [error, setError] = useState('');
@@ -22,21 +42,7 @@ function BarcodeScanner({ onScanSuccess }) {
     timeoutId = setTimeout(() => {
       if (!isMounted) return;
     
-    // ตั้งค่าให้สแกนเฉพาะ Barcode (1D) เท่านั้น ไม่เอา QR Code
-    const hints = new Map();
-    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-      BarcodeFormat.EAN_13,
-      BarcodeFormat.EAN_8,
-      BarcodeFormat.CODE_128,
-      BarcodeFormat.UPC_A,
-      BarcodeFormat.UPC_E,
-      BarcodeFormat.CODE_39
-    ]);
-    
-    // บังคับให้ระบบพยายามอ่านบาร์โค้ดที่เบลอหรืออ่านยาก (ใช้ CPU มากขึ้นแต่แม่นยำขึ้นมาก)
-    hints.set(DecodeHintType.TRY_HARDER, true);
-
-    const codeReader = new BrowserMultiFormatReader(hints);
+    const codeReader = getSharedCodeReader();
 
     codeReader
       .decodeFromConstraints(
