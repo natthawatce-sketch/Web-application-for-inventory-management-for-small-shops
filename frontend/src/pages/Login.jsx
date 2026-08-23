@@ -44,6 +44,7 @@ const LoginPage = () => {
       }
 
       console.log("4. ล็อกอินผ่าน! กำลังจะเปลี่ยนหน้า...");
+      localStorage.setItem('token', data.token); // 🌟 บันทึก Token
       localStorage.setItem('user_id', data.user_id);
       localStorage.setItem('user_name', data.username);
       localStorage.setItem('user_role', data.role);

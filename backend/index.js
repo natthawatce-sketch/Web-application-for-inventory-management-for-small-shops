@@ -40,6 +40,19 @@ app.get('/', (req, res) => {
 // ==========================================
 // 🔑 API สำหรับระบบเข้าสู่ระบบ (Login) - เวอร์ชัน Bcrypt เต็มรูปแบบ
 // ==========================================
+const jwt = require('jsonwebtoken');
+const { verifyToken } = require('./middleware/authMiddleware');
+
+// ดักจับทุก Request ที่เข้ามาที่ /api
+app.use('/api', (req, res, next) => {
+    // ยกเว้นเส้นทาง login ไม่ต้องตรวจ Token
+    if (req.path === '/login') {
+        return next();
+    }
+    verifyToken(req, res, next);
+});
+
+
 app.post('/api/login', async (req, res) => {
     try {
         // รับค่า username และ password ที่ส่งมาจากฝั่ง React (หน้าบ้าน)
@@ -77,10 +90,18 @@ app.post('/api/login', async (req, res) => {
             return res.status(403).json({ message: "บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อแอดมิน" });
         }
         
+        // 🎉 สร้าง Token JWT
+        const token = jwt.sign(
+            { user_id: user.user_id, username: user.username, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '8h' } // Token มีอายุ 8 ชั่วโมง
+        );
+
         // 🎉 กรณีที่ 3: ล็อกอินผ่านสำเร็จ ส่งข้อมูลสำคัญกลับไปให้ฝั่ง React นำไปใช้งานต่อ
         // 🎉 ตรงส่วนท้ายของ app.post('/api/login') ก่อนปิด try
         res.json({
             message: 'เข้าสู่ระบบสำเร็จ',
+            token: token,                  // 🌟 ส่ง Token ไปให้ Frontend
             user_id: user.user_id,         // 🌟 เพิ่มการส่ง ID กลับไป
             username: user.username,
             email: user.email,             // 🌟 เพิ่มการส่งอีเมลกลับไป

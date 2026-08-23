@@ -3,11 +3,11 @@ import { Navigate, Outlet } from 'react-router-dom';
 
 // Component ป้อมยาม
 const ProtectedRoute = ({ requireAdmin }) => {
-  const username = localStorage.getItem('user_name');
+  const token = localStorage.getItem('token');
   const role = localStorage.getItem('user_role');
 
-  // ด่านที่ 1: เช็คว่าล็อกอินหรือยัง?
-  if (!username) {
+  // ด่านที่ 1: เช็คว่ามี Token (ล็อกอินหรือยัง?)
+  if (!token) {
     // ถ้ายัง ให้เด้งกลับไปหน้าล็อกอิน
     return <Navigate to="/" replace />; 
   }
