@@ -129,6 +129,7 @@ async function setupDatabase() {
         try { await connection.query("ALTER TABLE products ADD COLUMN unit VARCHAR(50) DEFAULT 'ชิ้น'"); console.log("Added unit to products"); } catch(e) {}
     try { await connection.query("ALTER TABLE products ADD COLUMN product_status VARCHAR(50) DEFAULT 'active'"); console.log("Added product_status to products"); } catch(e) {}
     try { await connection.query("ALTER TABLE stock_in ADD COLUMN status VARCHAR(50) DEFAULT 'active'"); console.log("Added status to stock_in"); } catch(e) {}
+        try { await connection.query("ALTER TABLE inventory ADD COLUMN min_quantity INT DEFAULT 10"); console.log("Added min_quantity to inventory"); } catch(e) {}
     console.log("Database setup complete!");
     await connection.end();
 }
@@ -137,4 +138,5 @@ setupDatabase().catch(err => {
     console.error("Database setup failed:", err);
     process.exit(1);
 });
+
 
