@@ -195,7 +195,7 @@ const Navbar = () => {
         if (data) {
           setStoreName(data.store_name || "");
           if (data.promptpay_qr) {
-            setQrPreview(`/uploads/${data.promptpay_qr}`);
+            setQrPreview((data.promptpay_qr?.startsWith('http') ? data.promptpay_qr : `/uploads/${data.promptpay_qr}`));
           }
         }
       })
@@ -379,7 +379,7 @@ const Navbar = () => {
                 <img
                   src={
                     profileImage
-                      ? `/uploads/${profileImage}`
+                      ? (profileImage?.startsWith('http') ? profileImage : `/uploads/${profileImage}`)
                       : `https://ui-avatars.com/api/?name=${username || "User"}&background=eff6ff&color=1d4ed8&size=100`
                   }
                   alt="Profile"
@@ -394,7 +394,7 @@ const Navbar = () => {
                   <img
                     src={
                       profileImage
-                        ? `/uploads/${profileImage}`
+                        ? (profileImage?.startsWith('http') ? profileImage : `/uploads/${profileImage}`)
                         : `https://ui-avatars.com/api/?name=${username || "User"}&background=eff6ff&color=1d4ed8&size=100`
                     }
                     alt="Profile"

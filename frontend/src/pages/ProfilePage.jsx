@@ -49,7 +49,7 @@ const ProfilePage = () => {
           
           // เช็คว่ามีรูปโปรไฟล์ในฐานข้อมูลไหม ถ้ามีให้แสดงรูปจากเซิร์ฟเวอร์หลังบ้าน
           if (data.profile_image) {
-            setImagePreview(`/uploads/${data.profile_image}`);
+            setImagePreview((data.profile_image?.startsWith('http') ? data.profile_image : `/uploads/${data.profile_image}`));
           }
         }
       } catch (error) {

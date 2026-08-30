@@ -33,7 +33,7 @@ function SellProduct() {
       .then(res => res.json())
       .then(data => {
         if (data && data.promptpay_qr) {
-          setQrImage(`/uploads/${data.promptpay_qr}`); // ดึง path รูปภาพมาใช้งานเหมือนตารางสินค้า
+          setQrImage((data.promptpay_qr?.startsWith('http') ? data.promptpay_qr : `/uploads/${data.promptpay_qr}`)); // ดึง path รูปภาพมาใช้งานเหมือนตารางสินค้า
         }
       })
       .catch(error => console.error("🚨 Error fetching store QR code:", error));
@@ -228,7 +228,7 @@ function SellProduct() {
         ) : (
           cart.map((item, index) => (
             <div key={index} className="flex items-center bg-white p-2.5 rounded-xl shadow-sm border border-slate-100 gap-2.5 hover:border-blue-100 transition-colors">
-              <img src={`/uploads/${item.image}`} className="w-11 h-11 object-contain rounded-lg bg-slate-50 border border-slate-100 p-0.5" alt="Product" />
+              <img src={(item.image?.startsWith('http') ? item.image : `/uploads/${item.image}`)} className="w-11 h-11 object-contain rounded-lg bg-slate-50 border border-slate-100 p-0.5" alt="Product" />
               
               <div className="flex-1 min-w-0">
                 <h4 className="font-bold text-slate-800 text-[13px] truncate leading-tight mb-0.5">{item.product_name}</h4>

@@ -18,13 +18,21 @@ app.use(express.json());
 // ==========================================
 // 🌟 ตั้งค่าระบบอัปโหลดไฟล์รูปภาพ (Multer)
 // ==========================================
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/') 
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + path.extname(file.originalname))
-    }
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'pos_uploads',
+    allowedFormats: ['jpeg', 'png', 'jpg', 'webp'],
+  },
 });
 const upload = multer({ storage: storage }); 
 
@@ -192,7 +200,7 @@ app.put('/api/users/:id', upload.single('profile_image'), async (req, res) => {
         if (userRows.length === 0) return res.status(404).json({ message: 'ไม่พบผู้ใช้งานนี้ในระบบ' });
         
         const oldProfileImage = userRows[0].profile_image;
-        let profile_image = req.file ? req.file.filename : null;
+        let profile_image = req.file ? req.file.path : null;
 
         // 🌟 ถ้ามีการเปลี่ยนรูปโปรไฟล์ใหม่ ให้สั่งลบรูปโปรไฟล์เก่าออกจากเซิร์ฟเวอร์
         if (profile_image && oldProfileImage) {
@@ -385,7 +393,7 @@ app.post('/api/products', upload.single('image'), async (req, res) => {
         
         let image_filename = null;
         if (req.file) {
-            image_filename = req.file.filename; 
+            image_filename = req.file.path; 
         }
         
         if (!product_name || !category_id || !barcode || !unit || !price) {
@@ -438,7 +446,7 @@ app.put('/api/products/:id', upload.single('image'), async (req, res) => {
 
         // กรณีที่ 1: มีการอัปโหลดรูปภาพใหม่เข้ามาแทนที่
         if (req.file) {
-            newImageName = req.file.filename;
+            newImageName = req.file.path;
             // 🌟 สั่งลบรูปเก่าออกจากโฟลเดอร์ uploads ทันที (ถ้ามีอยู่จริง)
             if (oldImage) {
                 const oldImagePath = path.join(__dirname, 'uploads', oldImage);
@@ -1167,7 +1175,7 @@ app.put('/api/store-settings', upload.single('qr_image'), async (req, res) => {
         // ถ้ามีการอัปโหลดรูป QR Code มาใหม่
         if (req.file) {
             sql = `UPDATE store_settings SET store_name = ?, promptpay_qr = ? WHERE id = 1`;
-            values = [store_name, req.file.filename];
+            values = [store_name, req.file.path];
         } 
         // ถ้าเปลี่ยนแค่ชื่อร้าน ไม่ได้เปลี่ยนรูป
         else {

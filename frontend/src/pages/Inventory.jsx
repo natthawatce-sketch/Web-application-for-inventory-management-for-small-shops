@@ -314,7 +314,7 @@ function Inventory() {
                       <td className="py-2 px-4">
                         <div className="w-10 h-10 rounded-lg border border-slate-200 bg-white flex items-center justify-center overflow-hidden">
                           {item.image ? (
-                            <img src={`/uploads/${item.image}`} alt="product" className="w-full h-full object-contain p-0.5" />
+                            <img src={(item.image?.startsWith('http') ? item.image : `/uploads/${item.image}`)} alt="product" className="w-full h-full object-contain p-0.5" />
                           ) : (
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.2} stroke="currentColor" className="w-5 h-5 text-slate-300"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
                           )}
@@ -362,7 +362,7 @@ function Inventory() {
                   <div className="flex gap-2.5 items-center">
                     <div className="w-12 h-12 shrink-0 rounded-lg border border-slate-200 bg-white flex items-center justify-center overflow-hidden">
                       {item.image ? (
-                        <img src={`/uploads/${item.image}`} alt="product" className="w-full h-full object-contain p-0.5" />
+                        <img src={(item.image?.startsWith('http') ? item.image : `/uploads/${item.image}`)} alt="product" className="w-full h-full object-contain p-0.5" />
                       ) : (
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.2} stroke="currentColor" className="w-6 h-6 text-slate-300"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
                       )}
@@ -465,7 +465,7 @@ function Inventory() {
               <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex items-center gap-3">
                 <div className="w-10 h-10 rounded border border-slate-200 bg-white flex items-center justify-center overflow-hidden shrink-0">
                   {editMinQtyModal.item?.image ? (
-                    <img src={`/uploads/${editMinQtyModal.item.image}`} className="w-full h-full object-contain p-0.5" alt="product" />
+                    <img src={(editMinQtyModal.item.image?.startsWith('http') ? editMinQtyModal.item.image : `/uploads/${editMinQtyModal.item.image}`)} className="w-full h-full object-contain p-0.5" alt="product" />
                   ) : (
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-5 h-5 text-slate-300"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
                   )}
@@ -543,7 +543,7 @@ function Inventory() {
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-8 h-8 rounded border bg-white flex items-center justify-center overflow-hidden shrink-0">
                       {item.image ? (
-                        <img src={`/uploads/${item.image}`} className="w-full h-full object-contain" alt="thumb" />
+                        <img src={(item.image?.startsWith('http') ? item.image : `/uploads/${item.image}`)} className="w-full h-full object-contain" alt="thumb" />
                       ) : (
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-4 h-4 text-slate-300"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
                       )}
@@ -632,7 +632,7 @@ function Inventory() {
                 <div className="bg-slate-50 rounded-xl p-4 sm:p-5 border border-slate-200 text-center animate-fade-in">
                   <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto bg-white rounded-lg border border-slate-200 p-2 shadow-sm mb-4">
                     {scannedProductInfo.image ? (
-                      <img src={`/uploads/${scannedProductInfo.image}`} alt="Product" className="w-full h-full object-contain" />
+                      <img src={(scannedProductInfo.image?.startsWith('http') ? scannedProductInfo.image : `/uploads/${scannedProductInfo.image}`)} alt="Product" className="w-full h-full object-contain" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-slate-300">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>

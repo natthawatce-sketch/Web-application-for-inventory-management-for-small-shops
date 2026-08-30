@@ -187,7 +187,7 @@ function SalesReport() {
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-xs shrink-0 ${idx === 0 ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-300' : idx === 1 ? 'bg-slate-200 text-slate-700 ring-2 ring-slate-300' : 'bg-orange-100 text-orange-700 ring-2 ring-orange-200'}`}>{idx + 1}</div>
                         <div className="w-10 h-10 rounded-lg border border-slate-200 bg-white flex items-center justify-center p-1 shrink-0 overflow-hidden">
                           {product.image ? (
-                            <img src={`/uploads/${product.image}`} className="w-full h-full object-contain" alt="Product" />
+                            <img src={(product.image?.startsWith('http') ? product.image : `/uploads/${product.image}`)} className="w-full h-full object-contain" alt="Product" />
                           ) : (
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-5 h-5 text-slate-300"><path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>
                           )}
