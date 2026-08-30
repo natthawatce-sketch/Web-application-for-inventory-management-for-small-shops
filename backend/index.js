@@ -72,7 +72,7 @@ app.post('/api/login', async (req, res) => {
         }
 
         // ค้นหาผู้ใช้งานจาก username หรือ email และคอลัมน์ status ต้องเป็น "active" เท่านั้น
-        const sql = 'SELECT * FROM users WHERE (username = ? OR email = ?) AND status = "active"';
+        const sql = "SELECT * FROM users WHERE (username = ? OR email = ?) AND status = 'active'";
         
         // วิ่งไปค้นหาในฐานข้อมูลด้วยระบบ await (Promise)
         const [results] = await db.query(sql, [username, username]);
