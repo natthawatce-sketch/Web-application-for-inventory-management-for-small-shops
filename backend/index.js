@@ -557,13 +557,13 @@ app.get('/api/stock-in', async (req, res) => {
     try {
         const sql = `
             SELECT s.stock_in_id, s.product_id, p.product_name, c.category_name as category, 
-                   s.quantity, s.cost_price, s.expiration_date, s.received_date, 
+                   s.quantity, s.cost_price, s.expiration_date, s.created_at AS received_date, 
                    u.username as added_by
             FROM stock_in s
             LEFT JOIN products p ON s.product_id = p.product_id
             LEFT JOIN categories c ON p.category_id = c.category_id
             LEFT JOIN users u ON s.user_id = u.user_id
-            ORDER BY s.received_date DESC
+            ORDER BY s.created_at DESC
         `;
         
         const [results] = await db.query(sql);
