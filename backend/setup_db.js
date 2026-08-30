@@ -132,6 +132,7 @@ async function setupDatabase() {
         try { await connection.query("ALTER TABLE inventory ADD COLUMN min_quantity INT DEFAULT 10"); console.log("Added min_quantity to inventory"); } catch(e) {}
         try { await connection.query("ALTER TABLE inventory ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"); console.log("Added updated_at to inventory"); } catch(e) {}
     try { await connection.query("ALTER TABLE products ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"); console.log("Added created_at to products"); } catch(e) {}
+        try { await connection.query("ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"); console.log("Added created_at to users"); } catch(e) {}
     console.log("Database setup complete!");
     await connection.end();
 }
@@ -140,6 +141,7 @@ setupDatabase().catch(err => {
     console.error("Database setup failed:", err);
     process.exit(1);
 });
+
 
 
 
