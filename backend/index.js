@@ -53,13 +53,22 @@ const { verifyToken } = require('./middleware/authMiddleware');
 
 // ดักจับทุก Request ที่เข้ามาที่ /api
 app.use('/api', (req, res, next) => {
-    // ยกเว้นเส้นทาง login ไม่ต้องตรวจ Token
-    if (req.path === '/login') {
+    // ยกเว้นเส้นทาง login และ ping ไม่ต้องตรวจ Token
+    if (req.path === '/login' || req.path === '/ping') {
         return next();
     }
     verifyToken(req, res, next);
 });
 
+// API สำหรับให้ UptimeRobot ยิงมากระตุ้น Database ให้ตื่นเสมอ
+app.get('/api/ping', async (req, res) => {
+    try {
+        await db.query('SELECT 1');
+        res.status(200).json({ message: 'pong' });
+    } catch (err) {
+        res.status(500).json({ message: 'error' });
+    }
+});
 
 app.post('/api/login', async (req, res) => {
     try {
