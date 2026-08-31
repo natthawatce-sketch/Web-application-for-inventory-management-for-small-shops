@@ -121,7 +121,7 @@ app.post('/api/login', async (req, res) => {
     } catch (error) {
         // คอยดักจับ Error กรณีฐานข้อมูลพัง หรือเซิร์ฟเวอร์ระบบขัดข้อง
         console.error("🚨 เกิดข้อผิดพลาดในระบบล็อกอิน:", error);
-        return res.status(500).json({ message: 'ระบบประมวลผลเซิร์ฟเวอร์ผิดพลาด' });
+        return res.status(500).json({ message: 'ระบบประมวลผลเซิร์ฟเวอร์ผิดพลาด: ' + error.message });
     }
 });
 
