@@ -964,7 +964,7 @@ app.get('/api/sales', async (req, res) => {
             SELECT s.sale_id, s.total_price, s.sale_date, u.username
             FROM sales s
             LEFT JOIN users u ON s.user_id = u.user_id
-            ORDER BY s.sale_date DESC
+            ORDER BY s.sale_id DESC
         `;
         
         const [results] = await db.query(sql);

@@ -38,7 +38,9 @@ function ManageSales() {
       const response = await fetch('/api/sales');
       if (response.ok) {
         const data = await response.json();
-        setSales(data);
+        // บังคับเรียงตั้งแต่ตอนดึงข้อมูลเสร็จเลย
+        const sortedData = data.sort((a, b) => Number(b.sale_id) - Number(a.sale_id));
+        setSales(sortedData);
       } else {
         setSales([]);
       }
@@ -81,7 +83,11 @@ function ManageSales() {
       result = result.filter(s => s.sale_id && s.sale_id.toString().includes(searchReceipt.trim()));
     }
 
-    setFilteredSales(result);
+    // เรียงลำดับบิลตามเลขที่ใบเสร็จจากมากไปน้อย (ล่าสุดขึ้นก่อน) แน่นอน 100% บนหน้าเว็บ
+    const sortedResult = [...result].sort((a, b) => Number(b.sale_id) - Number(a.sale_id));
+    console.log("Sorted Data:", sortedResult.map(s => s.sale_id));
+
+    setFilteredSales(sortedResult);
     setCurrentPage(1);
   }, [sales, filterType, searchReceipt]);
 

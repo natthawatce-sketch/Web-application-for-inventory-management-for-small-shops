@@ -159,7 +159,7 @@ function SalesReport() {
                     <div className="w-full text-center text-xs text-slate-400 py-10">ไม่มีข้อมูลธุรกรรมในช่วงเวลานี้</div>
                   ) : (
                     chartData.map((item, idx) => (
-                      <div key={idx} className="flex flex-col items-center flex-1 group relative">
+                      <div key={idx} className="flex flex-col items-center flex-1 group relative h-full justify-end">
                         <span className="text-[9px] font-mono font-bold text-slate-500 mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800  px-1.5 py-0.5 rounded absolute -top-7 shadow-sm z-10 whitespace-nowrap">฿{Number(item.revenue).toLocaleString()}</span>
                         <div style={{ height: `${item.percent}%` }} className="w-6 sm:w-12 bg-gradient-to-t from-blue-500 to-cyan-400 rounded-t-md hover:from-blue-600 hover:to-cyan-500 shadow-sm transition-all duration-500 cursor-pointer"></div>
                         <span className="text-[10px] font-bold text-slate-400 mt-2 truncate max-w-[60px] sm:max-w-none">{item.label}</span>
