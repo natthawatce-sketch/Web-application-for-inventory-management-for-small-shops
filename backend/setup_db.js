@@ -99,7 +99,10 @@ async function setupDatabase() {
         `CREATE TABLE IF NOT EXISTS store_settings (
             id INT PRIMARY KEY DEFAULT 1,
             store_name VARCHAR(255) DEFAULT 'ร้านค้าของฉัน',
-            promptpay_qr VARCHAR(255) DEFAULT NULL
+            promptpay_qr VARCHAR(255) DEFAULT NULL,
+            updated_by INT DEFAULT NULL,
+            updated_at DATETIME DEFAULT NULL,
+            FOREIGN KEY (updated_by) REFERENCES users(user_id) ON DELETE SET NULL
         )`
     ];
 
@@ -133,6 +136,10 @@ async function setupDatabase() {
         try { await connection.query("ALTER TABLE inventory ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"); console.log("Added updated_at to inventory"); } catch(e) {}
     try { await connection.query("ALTER TABLE products ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"); console.log("Added created_at to products"); } catch(e) {}
         try { await connection.query("ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"); console.log("Added created_at to users"); } catch(e) {}
+    // Migration: เพิ่มคอลัมน์ updated_by และ updated_at ให้ store_settings (สำหรับ DB ที่มีอยู่แล้ว)
+    try { await connection.query("ALTER TABLE store_settings ADD COLUMN updated_by INT DEFAULT NULL"); console.log("Added updated_by to store_settings"); } catch(e) {}
+    try { await connection.query("ALTER TABLE store_settings ADD COLUMN updated_at DATETIME DEFAULT NULL"); console.log("Added updated_at to store_settings"); } catch(e) {}
+    try { await connection.query("ALTER TABLE store_settings ADD CONSTRAINT fk_store_updated_by FOREIGN KEY (updated_by) REFERENCES users(user_id) ON DELETE SET NULL"); console.log("Added FK constraint for updated_by"); } catch(e) {}
     console.log("Database setup complete!");
     await connection.end();
 }
@@ -141,7 +148,3 @@ setupDatabase().catch(err => {
     console.error("Database setup failed:", err);
     process.exit(1);
 });
-
-
-
-

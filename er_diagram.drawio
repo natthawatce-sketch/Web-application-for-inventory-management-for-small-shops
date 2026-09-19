@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" type="device">
+  <diagram name="ER Diagram" id="er1">
+    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="1">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="T_users" value="users" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#8E44AD;fontColor=#FFFFFF;strokeColor=#6A1B9A;rounded=1;arcSize=6;shadow=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="400" y="40" width="280" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_users_F" value="user_id : INT [PK]&#xa;username : VARCHAR(100) NN&#xa;password : VARCHAR(255) NN&#xa;email : VARCHAR(150) NN&#xa;role : ENUM(admin,staff) NN&#xa;status : ENUM(active,inactive) NN&#xa;profile_image : VARCHAR(255)&#xa;created_at : DATETIME NN" style="text;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;spacingTop=4;overflow=hidden;rotatable=0;html=0;fillColor=#F3E5F5;fontSize=11;fontFamily=Consolas;strokeColor=none;" vertex="1" parent="T_users">
+          <mxGeometry y="30" width="280" height="180" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_store_settings" value="store_settings" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#34495E;fontColor=#FFFFFF;strokeColor=#2C3E50;rounded=1;arcSize=6;shadow=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="580" width="280" height="180" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_store_settings_F" value="setting_id : INT [PK]&#xa;store_name : VARCHAR(150) NN&#xa;address : TEXT&#xa;contact_phone : VARCHAR(50)&#xa;tax_id : VARCHAR(50)&#xa;updated_by : INT [FK] NN&#xa;updated_at : DATETIME" style="text;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;spacingTop=4;overflow=hidden;rotatable=0;html=0;fillColor=#EAECEE;fontSize=11;fontFamily=Consolas;strokeColor=none;" vertex="1" parent="T_store_settings">
+          <mxGeometry y="30" width="280" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_categories" value="categories" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#27AE60;fontColor=#FFFFFF;strokeColor=#1E8449;rounded=1;arcSize=6;shadow=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="760" y="290" width="280" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_categories_F" value="category_id : INT [PK]&#xa;category_name : VARCHAR(100) NN&#xa;description : TEXT" style="text;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;spacingTop=4;overflow=hidden;rotatable=0;html=0;fillColor=#E8F8F5;fontSize=11;fontFamily=Consolas;strokeColor=none;" vertex="1" parent="T_categories">
+          <mxGeometry y="30" width="280" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_products" value="products" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#2ECC71;fontColor=#FFFFFF;strokeColor=#27AE60;rounded=1;arcSize=6;shadow=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="400" y="290" width="280" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_products_F" value="product_id : INT [PK]&#xa;product_name : VARCHAR(150) NN&#xa;category_id : INT [FK] NN&#xa;barcode : VARCHAR(100) NN&#xa;unit : VARCHAR(50) NN&#xa;price : DECIMAL(10,2) NN&#xa;image : VARCHAR(255)&#xa;product_status : ENUM NN&#xa;created_at : DATETIME NN" style="text;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;spacingTop=4;overflow=hidden;rotatable=0;html=0;fillColor=#EAFAF1;fontSize=11;fontFamily=Consolas;strokeColor=none;" vertex="1" parent="T_products">
+          <mxGeometry y="30" width="280" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_product_history" value="product_history" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#1ABC9C;fontColor=#FFFFFF;strokeColor=#16A085;rounded=1;arcSize=6;shadow=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="760" y="40" width="280" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_product_history_F" value="history_id : INT [PK]&#xa;product_id : INT [FK] NN&#xa;action : VARCHAR(100) NN&#xa;changed_by : INT [FK] NN&#xa;changed_at : DATETIME NN" style="text;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;spacingTop=4;overflow=hidden;rotatable=0;html=0;fillColor=#E8F8F5;fontSize=11;fontFamily=Consolas;strokeColor=none;" vertex="1" parent="T_product_history">
+          <mxGeometry y="30" width="280" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_sales" value="sales" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#2980B9;fontColor=#FFFFFF;strokeColor=#1F618D;rounded=1;arcSize=6;shadow=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="280" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_sales_F" value="sale_id : INT [PK]&#xa;user_id : INT [FK] NN&#xa;total_price : DECIMAL(10,2) NN&#xa;sale_date : DATETIME NN" style="text;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;spacingTop=4;overflow=hidden;rotatable=0;html=0;fillColor=#EBF5FB;fontSize=11;fontFamily=Consolas;strokeColor=none;" vertex="1" parent="T_sales">
+          <mxGeometry y="30" width="280" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_sale_items" value="sale_items" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#3498DB;fontColor=#FFFFFF;strokeColor=#2980B9;rounded=1;arcSize=6;shadow=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="210" width="280" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_sale_items_F" value="sale_item_id : INT [PK]&#xa;sale_id : INT [FK] NN&#xa;product_id : INT [FK] NN&#xa;quantity : INT NN&#xa;price : DECIMAL(10,2) NN" style="text;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;spacingTop=4;overflow=hidden;rotatable=0;html=0;fillColor=#EBF5FB;fontSize=11;fontFamily=Consolas;strokeColor=none;" vertex="1" parent="T_sale_items">
+          <mxGeometry y="30" width="280" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_inventory" value="inventory" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#E67E22;fontColor=#FFFFFF;strokeColor=#CA6F1E;rounded=1;arcSize=6;shadow=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="400" width="280" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_inventory_F" value="inventory_id : INT [PK]&#xa;product_id : INT [FK] NN&#xa;quantity : INT NN&#xa;min_quantity : INT NN&#xa;updated_at : DATETIME NN" style="text;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;spacingTop=4;overflow=hidden;rotatable=0;html=0;fillColor=#FEF5E7;fontSize=11;fontFamily=Consolas;strokeColor=none;" vertex="1" parent="T_inventory">
+          <mxGeometry y="30" width="280" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_stock_in" value="stock_in" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#D35400;fontColor=#FFFFFF;strokeColor=#BA4A00;rounded=1;arcSize=6;shadow=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="400" y="570" width="280" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_stock_in_F" value="stock_in_id : INT [PK]&#xa;product_id : INT [FK] NN&#xa;quantity : INT NN&#xa;expiration_date : DATE&#xa;received_date : DATETIME NN&#xa;user_id : INT [FK] NN" style="text;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;spacingTop=4;overflow=hidden;rotatable=0;html=0;fillColor=#FDEBD0;fontSize=11;fontFamily=Consolas;strokeColor=none;" vertex="1" parent="T_stock_in">
+          <mxGeometry y="30" width="280" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_stock_logs" value="stock_logs" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#F39C12;fontColor=#FFFFFF;strokeColor=#D4AC0D;rounded=1;arcSize=6;shadow=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="760" y="440" width="280" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="T_stock_logs_F" value="log_id : INT [PK]&#xa;product_id : INT [FK] NN&#xa;action : ENUM NN&#xa;quantity : INT NN&#xa;user_id : INT [FK] NN&#xa;log_date : DATETIME NN" style="text;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;spacingTop=4;overflow=hidden;rotatable=0;html=0;fillColor=#FEF9E7;fontSize=11;fontFamily=Consolas;strokeColor=none;" vertex="1" parent="T_stock_logs">
+          <mxGeometry y="30" width="280" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="R1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;endFill=0;startArrow=ERmany;startFill=0;strokeColor=#27AE60;strokeWidth=2;" edge="1" source="T_products" target="T_categories" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="R2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;endFill=0;startArrow=ERmany;startFill=0;strokeColor=#1ABC9C;strokeWidth=2;" edge="1" source="T_product_history" target="T_products" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="R3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;endFill=0;startArrow=ERmany;startFill=0;strokeColor=#8E44AD;strokeWidth=2;" edge="1" source="T_product_history" target="T_users" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="R4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;endFill=0;startArrow=ERmany;startFill=0;strokeColor=#2980B9;strokeWidth=2;" edge="1" source="T_sales" target="T_users" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="R5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;endFill=0;startArrow=ERmany;startFill=0;strokeColor=#3498DB;strokeWidth=2;" edge="1" source="T_sale_items" target="T_sales" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="R6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;endFill=0;startArrow=ERmany;startFill=0;strokeColor=#3498DB;strokeWidth=2;" edge="1" source="T_sale_items" target="T_products" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="R7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;endFill=0;startArrow=ERmany;startFill=0;strokeColor=#E67E22;strokeWidth=2;" edge="1" source="T_inventory" target="T_products" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="R8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;endFill=0;startArrow=ERmany;startFill=0;strokeColor=#F39C12;strokeWidth=2;" edge="1" source="T_stock_logs" target="T_products" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="R9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;endFill=0;startArrow=ERmany;startFill=0;strokeColor=#F39C12;strokeWidth=2;" edge="1" source="T_stock_logs" target="T_users" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="R10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;endFill=0;startArrow=ERmany;startFill=0;strokeColor=#D35400;strokeWidth=2;" edge="1" source="T_stock_in" target="T_products" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="R11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;endFill=0;startArrow=ERmany;startFill=0;strokeColor=#D35400;strokeWidth=2;" edge="1" source="T_stock_in" target="T_users" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="R12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;endFill=0;startArrow=ERmany;startFill=0;strokeColor=#34495E;strokeWidth=2;" edge="1" source="T_store_settings" target="T_users" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

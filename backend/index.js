@@ -1159,7 +1159,12 @@ app.put('/api/inventory/min-qty/:id', async (req, res) => {
 // ==========================================
 app.get('/api/store-settings', async (req, res) => {
     try {
-        const [results] = await db.query('SELECT * FROM store_settings WHERE id = 1');
+        const [results] = await db.query(`
+            SELECT s.*, u.username AS updated_by_username
+            FROM store_settings s
+            LEFT JOIN users u ON s.updated_by = u.user_id
+            WHERE s.id = 1
+        `);
         if (results.length > 0) {
             res.json(results[0]);
         } else {
@@ -1178,18 +1183,19 @@ app.get('/api/store-settings', async (req, res) => {
 app.put('/api/store-settings', upload.single('qr_image'), async (req, res) => {
     try {
         const { store_name } = req.body;
+        const updatedBy = req.user ? req.user.user_id : null;
         let sql = "";
         let values = [];
 
         // ถ้ามีการอัปโหลดรูป QR Code มาใหม่
         if (req.file) {
-            sql = `UPDATE store_settings SET store_name = ?, promptpay_qr = ? WHERE id = 1`;
-            values = [store_name, req.file.path];
+            sql = `UPDATE store_settings SET store_name = ?, promptpay_qr = ?, updated_by = ?, updated_at = NOW() WHERE id = 1`;
+            values = [store_name, req.file.path, updatedBy];
         } 
         // ถ้าเปลี่ยนแค่ชื่อร้าน ไม่ได้เปลี่ยนรูป
         else {
-            sql = `UPDATE store_settings SET store_name = ? WHERE id = 1`;
-            values = [store_name];
+            sql = `UPDATE store_settings SET store_name = ?, updated_by = ?, updated_at = NOW() WHERE id = 1`;
+            values = [store_name, updatedBy];
         }
 
         await db.query(sql, values);

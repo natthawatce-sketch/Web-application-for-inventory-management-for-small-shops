@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { useNavigate } from 'react-router-dom';
+import toast, { Toaster } from 'react-hot-toast';
 
 function Add_new_products() {
   const [barcode, setBarcode] = useState("");
@@ -10,6 +11,7 @@ function Add_new_products() {
   const [unit, setUnit] = useState("");
   const [imageFile, setImageFile] = useState(null); 
   const [categories, setCategories] = useState([]); 
+  const [scannerKey, setScannerKey] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -37,17 +39,17 @@ function Add_new_products() {
         const data = await response.json();
         setBarcode(data.barcode); // นำเลขที่ได้จากหลังบ้านมาใส่ในช่อง Input อัตโนมัติ
       } else {
-        alert("ไม่สามารถสร้างบาร์โค้ดได้ กรุณาลองใหม่");
+        toast.error("ไม่สามารถสร้างบาร์โค้ดได้ กรุณาลองใหม่");
       }
     } catch (error) {
       console.error("Error generating barcode:", error);
-      alert("เซิร์ฟเวอร์มีปัญหา ไม่สามารถสร้างบาร์โค้ดได้");
+      toast.error("เซิร์ฟเวอร์มีปัญหา ไม่สามารถสร้างบาร์โค้ดได้");
     }
   };
 
   const handleSaveProduct = async () => {
     if (!productName || !categoryId || !barcode || !price || !unit) {
-      alert("กรุณากรอกข้อมูลสินค้าให้ครบถ้วนครับ!");
+      toast.error("กรุณากรอกข้อมูลสินค้าให้ครบถ้วนครับ!");
       return;
     }
 
@@ -71,24 +73,26 @@ function Add_new_products() {
       const data = await response.json();
 
       if (response.ok) {
-        alert("🎉 เพิ่มสินค้าสำเร็จ!");
+        toast.success("🎉 เพิ่มสินค้าสำเร็จ!");
         setBarcode(""); 
         setProductName(""); 
         setCategoryId(""); 
         setPrice(""); 
         setUnit(""); 
         setImageFile(null); 
+        setScannerKey(prev => prev + 1);
       } else {
-        alert("เกิดข้อผิดพลาด: " + data.message);
+        toast.error("เกิดข้อผิดพลาด: " + data.message);
       }
     } catch (error) {
       console.error("Error:", error);
-      alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
     }
   };
 
   return (
     <div className="min-h-screen w-full overflow-y-auto bg-white pb-10">
+      <Toaster position="top-right" />
       <div className='flex items-center bg-blue-900 h-16 w-auto   '>
         <div className='w-1/2'>
         <div className="m-5 flex-1 flex justify-start">
@@ -110,7 +114,7 @@ function Add_new_products() {
       </div>  
 
       <div className='flex justify-center my-3 mx-10 xl:mx-72'>
-        <BarcodeScanner onScanSuccess={onScanSuccess} />
+        <BarcodeScanner key={scannerKey} onScanSuccess={onScanSuccess} />
       </div>
 
       <div className='mx-10 xl:mx-72'>

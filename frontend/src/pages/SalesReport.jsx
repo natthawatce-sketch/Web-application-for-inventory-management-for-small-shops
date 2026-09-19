@@ -152,20 +152,39 @@ function SalesReport() {
 
             {/* โซนวาดกราฟ SVG ดึงยอดจากฐานข้อมูล */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-3">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-3 overflow-hidden w-full">
                 <h3 className="text-sm sm:text-base font-bold text-slate-800 mb-4">กราฟแสดงมูลค่าสถิติยอดขายตามช่วงเวลา</h3>
-                <div className="w-full bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-end justify-between h-56 pt-8">
-                  {chartData.length === 0 ? (
-                    <div className="w-full text-center text-xs text-slate-400 py-10">ไม่มีข้อมูลธุรกรรมในช่วงเวลานี้</div>
-                  ) : (
-                    chartData.map((item, idx) => (
-                      <div key={idx} className="flex flex-col items-center flex-1 group relative h-full justify-end">
-                        <span className="text-[9px] font-mono font-bold text-slate-500 mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800  px-1.5 py-0.5 rounded absolute -top-7 shadow-sm z-10 whitespace-nowrap">฿{Number(item.revenue).toLocaleString()}</span>
-                        <div style={{ height: `${item.percent}%` }} className="w-6 sm:w-12 bg-gradient-to-t from-blue-500 to-cyan-400 rounded-t-md hover:from-blue-600 hover:to-cyan-500 shadow-sm transition-all duration-500 cursor-pointer"></div>
-                        <span className="text-[10px] font-bold text-slate-400 mt-2 truncate max-w-[60px] sm:max-w-none">{item.label}</span>
-                      </div>
-                    ))
-                  )}
+                
+                {/* 🌟 ครอบด้วย overflow-x-auto เพื่อให้เลื่อนซ้ายขวาได้บนมือถือ */}
+                <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-end justify-between h-[300px] pt-24 min-w-[600px] lg:min-w-full gap-2 sm:gap-4">
+                    {chartData.length === 0 ? (
+                      <div className="w-full text-center text-xs text-slate-400 py-10">ไม่มีข้อมูลธุรกรรมในช่วงเวลานี้</div>
+                    ) : (
+                      chartData.map((item, idx) => (
+                        <div key={idx} className="flex flex-col items-center flex-1 group relative h-full justify-end">
+                          
+                          {/* Tooltip (Hover เพื่อดูยอดเงิน) */}
+                          <span className="text-[10px] font-mono font-bold text-white mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 px-2 py-1 rounded absolute -top-24 shadow-sm z-20 whitespace-nowrap pointer-events-none">
+                            ฿{Number(item.revenue).toLocaleString()}
+                          </span>
+
+                          {/* 🌟 วันที่ย้ายไปด้านบน และเป็นแนวตั้ง (-rotate-90) */}
+                          <div className="absolute -top-16 w-full flex justify-center">
+                            <span className="text-[11px] font-bold text-slate-500 -rotate-90 whitespace-nowrap tracking-wider">
+                              {item.label}
+                            </span>
+                          </div>
+
+                          {/* แท่งกราฟ */}
+                          <div 
+                            style={{ height: `${item.percent > 0 ? item.percent : 1}%` }} 
+                            className="w-6 sm:w-12 bg-gradient-to-t from-blue-500 to-cyan-400 rounded-t-md hover:from-blue-600 hover:to-cyan-500 shadow-sm transition-all duration-500 cursor-pointer"
+                          ></div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
