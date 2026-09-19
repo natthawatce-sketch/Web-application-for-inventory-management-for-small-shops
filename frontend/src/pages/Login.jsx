@@ -182,12 +182,16 @@ const LoginPage = () => {
                 <div className="w-full border-t border-gray-200" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">หรือ</span>
+                <span className="px-2 bg-white text-gray-500 font-bold">จัดทำโดย</span>
               </div>
             </div>
             <div className="mt-3 text-center">
               <p className="text-sm text-gray-600">
-                หากพบปัญหาในการเข้าสู่ระบบ กรุณาติดต่อแอดมิน
+                นายนัฎฐวัฒน์ หัตถกรรม และ นางสาวธัญรดา สิมณี 
+                นักศึกษาสาขาวิศวกรรมคอมพิวเตอร์
+                คณะวิศวกรรมศาสตร์และเทคโนโลยี
+                มหาวิทยาลัยเทคโนโลยีราชมงคลอีสาน
+
               </p>
             </div>
           </div>
