@@ -83,16 +83,12 @@ const ProfilePage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 🛑 ดักจับกรณี "กรอกรหัสผ่านไม่ครบ" (เช็คว่ามีการพิมพ์ช่องใดช่องหนึ่งไหม)
-    const isChangingPassword = formData.currentPassword || formData.newPassword || formData.confirmPassword;
+    // 🛑 ดักจับกรณี "กรอกรหัสผ่านไม่ครบ" (เช็คว่ามีการพิมพ์ช่องรหัสผ่านใหม่ไหม)
+    const isChangingPassword = formData.newPassword || formData.confirmPassword;
 
     if (isChangingPassword) {
       if (!formData.currentPassword) {
         setAlert({ show: true, type: 'error', message: '⚠️ กรุณากรอก "รหัสผ่านปัจจุบัน" เพื่อยืนยัน' });
-        return;
-      }
-      if (!formData.newPassword) {
-        setAlert({ show: true, type: 'error', message: '⚠️ กรุณากรอก "รหัสผ่านใหม่" ที่ต้องการเปลี่ยน' });
         return;
       }
       if (formData.newPassword.length < 6) {
