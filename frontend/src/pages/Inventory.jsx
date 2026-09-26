@@ -30,6 +30,7 @@ function Inventory() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(true);
   const [scannedProductInfo, setScannedProductInfo] = useState(null);
+  const [adjustForm, setAdjustForm] = useState({ isOpen: false, quantity: 1, reason: 'ชำรุด' });
 
   const handleScanSuccess = async (barcode) => {
     // ป้องกันการสแกนซ้ำซ้อน
@@ -49,6 +50,40 @@ function Inventory() {
       console.error('Error scanning product:', error);
       toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่');
       setIsScanning(true);
+    }
+  };
+
+  const handleAdjustStock = async () => {
+    if (adjustForm.quantity <= 0) return toast.error('จำนวนต้องมากกว่า 0');
+    if (adjustForm.quantity > scannedProductInfo.stock) return toast.error('จำนวนที่ตัดเกินสต็อกคงเหลือ');
+
+    const loadingToast = toast.loading('กำลังปรับปรุงสต็อก...');
+    try {
+      const response = await fetch('/api/inventory/adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: scannedProductInfo.product_id,
+          quantity: adjustForm.quantity,
+          reason: adjustForm.reason,
+          user_id: localStorage.getItem('user_id') || 1
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        toast.success('ปรับปรุงสต็อกสำเร็จ', { id: loadingToast });
+        // อัปเดตข้อมูลในหน้าจอ (ลบยอด)
+        setScannedProductInfo(prev => ({ ...prev, stock: prev.stock - adjustForm.quantity }));
+        setAdjustForm(prev => ({ ...prev, isOpen: false, quantity: 1 }));
+        
+        // แนะนำให้ refresh ข้อมูลหลักด้วยถ้าทำได้ 
+        // fetchProducts(filterCategory); 
+      } else {
+        toast.error(data.error || 'เกิดข้อผิดพลาด', { id: loadingToast });
+      }
+    } catch (error) {
+      toast.error('เซิร์ฟเวอร์ขัดข้อง', { id: loadingToast });
     }
   };
 
@@ -649,7 +684,7 @@ function Inventory() {
                     </span>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-3 text-left bg-white rounded-lg p-3 border border-slate-200 text-xs sm:text-sm">
+                  <div className="grid grid-cols-2 gap-3 text-left bg-white rounded-lg p-3 border border-slate-200 text-xs sm:text-sm mb-4">
                     <div>
                       <p className="text-slate-400 mb-0.5">ราคาขาย</p>
                       <p className="font-bold text-slate-700">฿{Number(scannedProductInfo.price).toLocaleString()}</p>
@@ -658,6 +693,56 @@ function Inventory() {
                       <p className="text-slate-400 mb-0.5">สถานะ</p>
                       <p className="font-bold text-slate-700">{scannedProductInfo.product_status}</p>
                     </div>
+                  </div>
+
+                  {/* 🌟 ส่วนตัดสต็อก (ชำรุด/สูญหาย) */}
+                  <div className="bg-white rounded-lg border border-slate-200 overflow-hidden text-left">
+                    <button 
+                      onClick={() => setAdjustForm(prev => ({ ...prev, isOpen: !prev.isOpen }))}
+                      className="w-full p-3 flex justify-between items-center bg-slate-100 hover:bg-slate-200 transition-colors text-sm font-bold text-slate-700"
+                    >
+                      <div className="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-orange-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        ตัดสต็อก (ชำรุด/สูญหาย)
+                      </div>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-4 h-4 transition-transform ${adjustForm.isOpen ? 'rotate-180' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                    </button>
+                    
+                    {adjustForm.isOpen && (
+                      <div className="p-3 bg-white space-y-3 border-t border-slate-200">
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <label className="block text-[10px] sm:text-xs text-slate-500 mb-1">เหตุผล</label>
+                            <select 
+                              value={adjustForm.reason}
+                              onChange={(e) => setAdjustForm(prev => ({ ...prev, reason: e.target.value }))}
+                              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs sm:text-sm outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                            >
+                              <option value="ชำรุด">สินค้าชำรุด</option>
+                              <option value="สูญหาย">สินค้าสูญหาย</option>
+                            </select>
+                          </div>
+                          <div className="w-20">
+                            <label className="block text-[10px] sm:text-xs text-slate-500 mb-1">จำนวน</label>
+                            <input 
+                              type="number" 
+                              min="1"
+                              max={scannedProductInfo.stock}
+                              value={adjustForm.quantity}
+                              onChange={(e) => setAdjustForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || '' }))}
+                              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs sm:text-sm outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-center"
+                            />
+                          </div>
+                        </div>
+                        <button 
+                          onClick={handleAdjustStock}
+                          disabled={!adjustForm.quantity || adjustForm.quantity <= 0 || adjustForm.quantity > scannedProductInfo.stock}
+                          className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-slate-300 text-white py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-colors"
+                        >
+                          ยืนยันการตัดสต็อก
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : null}

@@ -384,9 +384,17 @@ app.get('/api/products/barcode/:barcode', async (req, res) => {
 app.get('/api/products', async (req, res) => {
     try {
         const sql = `
-            SELECT p.*, c.category_name 
+            SELECT 
+                p.*, 
+                c.category_name,
+                CASE 
+                    WHEN i.quantity IS NULL OR i.quantity <= 0 THEN 'หมด'
+                    ELSE 'พร้อมขาย'
+                END as product_status,
+                COALESCE(i.quantity, 0) as stock
             FROM products p 
             LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN inventory i ON p.product_id = i.product_id
         `;
         const [rows] = await db.query(sql);
         res.json(rows);
@@ -1102,6 +1110,51 @@ app.post('/api/inventory/discard', async (req, res) => {
 });
 
 // ==========================================
+// 📦 API สำหรับตัดสต็อกแบบระบุเหตุผล (ชำรุด/สูญหาย)
+// ==========================================
+app.post('/api/inventory/adjust', async (req, res) => {
+    const { product_id, quantity, reason, user_id } = req.body;
+
+    if (!product_id || !quantity || !reason) {
+        return res.status(400).json({ error: 'ข้อมูลไม่ครบถ้วน' });
+    }
+
+    let connection;
+    try {
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        // 1. เช็คยอดคงเหลือปัจจุบัน
+        const [invRows] = await connection.query('SELECT quantity FROM inventory WHERE product_id = ?', [product_id]);
+        const currentQty = invRows.length > 0 ? invRows[0].quantity : 0;
+        const adjustQty = parseInt(quantity, 10);
+
+        if (currentQty < adjustQty) {
+            await connection.rollback();
+            return res.status(400).json({ error: 'จำนวนสต็อกคงเหลือไม่เพียงพอให้ตัด' });
+        }
+
+        // 2. ลดสต็อก
+        await connection.query('UPDATE inventory SET quantity = quantity - ? WHERE product_id = ?', [adjustQty, product_id]);
+
+        // 3. บันทึกประวัติพร้อมเหตุผล
+        await connection.query(
+            `INSERT INTO stock_logs (product_id, user_id, action, quantity) VALUES (?, ?, ?, ?)`,
+            [product_id, user_id || 1, reason, adjustQty]
+        );
+
+        await connection.commit();
+        res.status(200).json({ message: 'ปรับปรุงสต็อกสำเร็จ' });
+    } catch (error) {
+        if (connection) await connection.rollback();
+        console.error('Error adjusting inventory:', error);
+        res.status(500).json({ error: 'เกิดข้อผิดพลาดในการปรับปรุงสต็อก' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+// ==========================================
 // 📦 API สำหรับหน้าดูจำนวนสินค้าในคลัง (Inventory)
 // ==========================================
 app.get('/api/inventory', async (req, res) => {
@@ -1220,7 +1273,7 @@ app.get('/api/stock-logs/recent', async (req, res) => {
                 sl.quantity,
                 CASE 
                     WHEN sl.action IN ('เพิ่ม', 'รับเข้า', 'in', 'add') THEN 'add'
-                    WHEN sl.action IN ('ลด', 'ขาย', 'out', 'sell') THEN 'sell'
+                    WHEN sl.action IN ('ลด', 'ขาย', 'out', 'sell', 'ชำรุด', 'สูญหาย', 'หมดอายุ') THEN 'sell'
                     WHEN sl.action IN ('ปรับปรุง', 'แก้ไข', 'edit') THEN 'edit'
                     ELSE 'other'
                 END AS action_type,
@@ -1228,6 +1281,9 @@ app.get('/api/stock-logs/recent', async (req, res) => {
                     WHEN sl.action IN ('เพิ่ม', 'รับเข้า', 'in', 'add') THEN 'ทำการเพิ่มสต็อก'
                     WHEN sl.action IN ('ลด', 'ขาย', 'out', 'sell') THEN 'ทำการลดสต็อก'
                     WHEN sl.action IN ('ปรับปรุง', 'แก้ไข', 'edit') THEN 'ทำการแก้ไขรายละเอียด'
+                    WHEN sl.action = 'ชำรุด' THEN 'ตัดสต็อก (สินค้าชำรุด)'
+                    WHEN sl.action = 'สูญหาย' THEN 'ตัดสต็อก (สินค้าสูญหาย)'
+                    WHEN sl.action = 'หมดอายุ' THEN 'ตัดสต็อก (สินค้าหมดอายุ)'
                     ELSE CONCAT('ทำการ', sl.action)
                 END AS action_detail,
                 p.product_name,

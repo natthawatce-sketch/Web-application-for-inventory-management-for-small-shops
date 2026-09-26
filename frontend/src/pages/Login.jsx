@@ -182,17 +182,21 @@ const LoginPage = () => {
                 <div className="w-full border-t border-gray-200" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500 font-bold">จัดทำโดย</span>
+                <span className="px-2 bg-white text-gray-500 font-medium">พัฒนาโดย</span>
               </div>
             </div>
-            <div className="mt-3 text-center">
-              <p className="text-sm text-gray-600">
-                นายนัฎฐวัฒน์ หัตถกรรม และ นางสาวธัญรดา สิมณี 
-                นักศึกษาสาขาวิศวกรรมคอมพิวเตอร์
-                คณะวิศวกรรมศาสตร์และเทคโนโลยี
-                มหาวิทยาลัยเทคโนโลยีราชมงคลอีสาน
-
+            <div className="mt-4 text-center">
+              <p className="text-sm font-semibold text-gray-700">
+                นายนัฎฐวัฒน์ หัตถกรรม <span className="text-gray-400 mx-1">|</span> นางสาวธัญรดา สิมณี 
               </p>
+              <div className="mt-1.5 space-y-0.5">
+                <p className="text-xs text-gray-500">
+                  สาขาวิชาวิศวกรรมคอมพิวเตอร์ คณะวิศวกรรมศาสตร์และเทคโนโลยี
+                </p>
+                <p className="text-xs text-gray-500">
+                  มหาวิทยาลัยเทคโนโลยีราชมงคลอีสาน
+                </p>
+              </div>
             </div>
           </div>
         </div>

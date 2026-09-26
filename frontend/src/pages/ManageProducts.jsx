@@ -590,16 +590,14 @@ const ManageProducts = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">สถานะสินค้า</label>
-                  <select 
+                  <input 
+                    type="text"
                     name="product_status" 
                     value={formData.product_status} 
-                    onChange={handleInputChange} 
-                    required 
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 sm:px-4 sm:py-2.5 outline-none bg-slate-50 focus:bg-white font-medium text-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
-                  >
-                    <option value="พร้อมขาย">พร้อมขาย</option>
-                    <option value="หมด">หมด (สินค้าหมด)</option>
-                  </select>
+                    disabled 
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 sm:px-4 sm:py-2.5 outline-none bg-slate-100 text-slate-500 font-medium cursor-not-allowed transition-all text-sm"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">*สถานะจะอัปเดตอัตโนมัติตามสต็อกคงเหลือ</p>
                 </div>
               </div>
 
