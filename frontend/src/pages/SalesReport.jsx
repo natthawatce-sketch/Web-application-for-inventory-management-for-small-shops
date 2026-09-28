@@ -53,13 +53,29 @@ function SalesReport() {
     }
   };
 
+  // 📈 คำนวณสเกลแกน Y ให้แบ่งเป็นช่วงๆ (เช่น 500, 1000, 1500)
+  const rawMaxRev = chartData.length > 0 ? Math.max(...chartData.map(d => Number(d.revenue))) : 0;
+  let tickStep = 500;
+  if (rawMaxRev > 100000) tickStep = 50000;
+  else if (rawMaxRev > 50000) tickStep = 10000;
+  else if (rawMaxRev > 10000) tickStep = 5000;
+  else if (rawMaxRev > 5000) tickStep = 1000;
+  else if (rawMaxRev > 1000) tickStep = 500;
+  else if (rawMaxRev > 500) tickStep = 200;
+  else if (rawMaxRev > 100) tickStep = 50;
+  else if (rawMaxRev > 0) tickStep = 10;
+  
+  const tickCount = Math.max(4, Math.ceil(rawMaxRev / tickStep));
+  const maxAxisValue = tickCount * tickStep;
+  const yTicks = Array.from({length: tickCount + 1}, (_, i) => tickCount - i);
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-800">
       {/* 🌟 ย้ายแจ้งเตือนมาไว้ตรงกลาง (top-center) เพื่อไม่ให้ล้นขอบจอ */}
       <Toaster position="top-center" />
 
       {/* --- ส่วนหัว Header แถวบนสุด --- */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center px-4 sm:px-6 py-4 bg-white border-b border-slate-200 shadow-sm gap-4 sticky top-0 z-20 w-full">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center px-4 sm:px-6 py-4 bg-white border-b border-slate-200 shadow-sm gap-4 sticky top-0 z-50 w-full">
         {/* ฝั่งซ้าย: ปุ่มย้อนกลับ และ ชื่อหัวข้อหน้า */}
         <div className="flex items-center gap-3 w-full lg:w-auto">
           <button 
@@ -158,6 +174,15 @@ function SalesReport() {
                 {/* 🌟 ครอบด้วย overflow-x-auto เพื่อให้เลื่อนซ้ายขวาได้บนมือถือ */}
                 <div className="w-full overflow-x-auto pb-4 pt-4 custom-scrollbar">
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-end justify-start sm:justify-center h-[300px] pt-20 gap-4 sm:gap-8 min-w-max">
+                    {/* 📈 แกน Y (Y-Axis) เส้นสีดำพร้อมตัวเลข (ปักหมุดเมื่อเลื่อน) */}
+                    <div className="sticky left-0 bg-slate-50 flex flex-col justify-between items-end pr-2 sm:pr-3 border-r-[2.5px] border-black h-full text-[10px] sm:text-xs text-slate-700 font-mono w-16 sm:w-20 shrink-0 z-20">
+                      {yTicks.map(tick => (
+                        <span key={tick} className={tick === tickCount ? "-translate-y-1/2 font-bold bg-slate-50" : tick === 0 ? "translate-y-1/2 font-bold bg-slate-50" : "font-bold bg-slate-50"}>
+                          {tick === 0 ? '฿0' : `฿${(tick * tickStep).toLocaleString()}`}
+                        </span>
+                      ))}
+                    </div>
+
                     {chartData.length === 0 ? (
                       <div className="w-full text-center text-xs text-slate-400 py-10">ไม่มีข้อมูลธุรกรรมในช่วงเวลานี้</div>
                     ) : (
@@ -166,7 +191,7 @@ function SalesReport() {
                           
                           {/* แท่งกราฟ */}
                           <div 
-                            style={{ height: `${item.percent > 0 ? item.percent : 1}%` }} 
+                            style={{ height: `${maxAxisValue > 0 ? Math.max((Number(item.revenue) / maxAxisValue) * 100, 1) : 1}%` }} 
                             className="w-full bg-gradient-to-t from-blue-500 to-cyan-400 rounded-t-md hover:from-blue-600 hover:to-cyan-500 shadow-sm transition-all duration-500 cursor-pointer relative"
                           >
                             {/* Tooltip (Hover เพื่อดูยอดเงิน) */}
