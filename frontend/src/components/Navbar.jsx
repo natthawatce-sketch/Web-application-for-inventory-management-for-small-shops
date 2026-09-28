@@ -28,6 +28,7 @@ const Navbar = () => {
   // 🏪 State สำหรับป๊อปอัปตั้งค่าร้านค้า
   const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
   const [storeName, setStoreName] = useState("");
+  const [storeAddress, setStoreAddress] = useState("");
   const [qrFile, setQrFile] = useState(null);
   const [qrPreview, setQrPreview] = useState(null);
   const [isStoreLoading, setIsStoreLoading] = useState(false);
@@ -184,6 +185,7 @@ const Navbar = () => {
     setIsStoreLoading(true);
     setQrFile(null);
     setStoreName("");
+    setStoreAddress("");
     setQrPreview(null);
 
     fetch("/api/store-settings", { cache: "no-store" })
@@ -194,6 +196,7 @@ const Navbar = () => {
       .then((data) => {
         if (data) {
           setStoreName(data.store_name || "");
+          setStoreAddress(data.store_address || "");
           if (data.promptpay_qr) {
             setQrPreview((data.promptpay_qr?.startsWith('http') ? data.promptpay_qr : `/uploads/${data.promptpay_qr}`));
           }
@@ -216,6 +219,7 @@ const Navbar = () => {
 
     const formData = new FormData();
     formData.append("store_name", storeName);
+    formData.append("store_address", storeAddress);
     if (qrFile) formData.append("qr_image", qrFile);
 
     try {
@@ -964,6 +968,23 @@ const Navbar = () => {
                     className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 bg-slate-50 transition-all font-medium text-slate-800"
                     placeholder="เช่น ร้านสะดวกซื้อ ProjectPOti"
                   />
+                </div>
+
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                    </svg>
+                    ที่อยู่ร้านค้า (แสดงบนใบเสร็จ)
+                  </label>
+                  <textarea
+                    value={storeAddress}
+                    onChange={(e) => setStoreAddress(e.target.value)}
+                    rows={3}
+                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 bg-slate-50 transition-all font-medium text-slate-800 resize-none"
+                    placeholder="เช่น 610/4 หมู่ 5 ซอย..."
+                  ></textarea>
                 </div>
 
                 <div>

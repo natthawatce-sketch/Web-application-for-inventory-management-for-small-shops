@@ -1235,20 +1235,20 @@ app.get('/api/store-settings', async (req, res) => {
 // ใช้ upload.single('qr_image') เพราะหน้าบ้านตั้งชื่อไฟล์ที่แนบมาว่า qr_image
 app.put('/api/store-settings', upload.single('qr_image'), async (req, res) => {
     try {
-        const { store_name } = req.body;
+        const { store_name, store_address } = req.body;
         const updatedBy = req.user ? req.user.user_id : null;
         let sql = "";
         let values = [];
 
         // ถ้ามีการอัปโหลดรูป QR Code มาใหม่
         if (req.file) {
-            sql = `UPDATE store_settings SET store_name = ?, promptpay_qr = ?, updated_by = ?, updated_at = NOW() WHERE id = 1`;
-            values = [store_name, req.file.path, updatedBy];
+            sql = `UPDATE store_settings SET store_name = ?, store_address = ?, promptpay_qr = ?, updated_by = ?, updated_at = NOW() WHERE id = 1`;
+            values = [store_name, store_address, req.file.path, updatedBy];
         } 
         // ถ้าเปลี่ยนแค่ชื่อร้าน ไม่ได้เปลี่ยนรูป
         else {
-            sql = `UPDATE store_settings SET store_name = ?, updated_by = ?, updated_at = NOW() WHERE id = 1`;
-            values = [store_name, updatedBy];
+            sql = `UPDATE store_settings SET store_name = ?, store_address = ?, updated_by = ?, updated_at = NOW() WHERE id = 1`;
+            values = [store_name, store_address, updatedBy];
         }
 
         await db.query(sql, values);

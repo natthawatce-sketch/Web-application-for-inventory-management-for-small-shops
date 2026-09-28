@@ -11,8 +11,9 @@ function ManageSales() {
   const [sales, setSales] = useState([]);
   const [filteredSales, setFilteredSales] = useState([]);
   
-  // 🌟 State สำหรับเก็บชื่อร้าน
+  // 🌟 State สำหรับเก็บชื่อร้านและที่อยู่
   const [storeName, setStoreName] = useState('ร้านของคุณ'); 
+  const [storeAddress, setStoreAddress] = useState('');
   
   // --- States ตัวกรอง & ค้นหา ---
   const [filterType, setFilterType] = useState('all');
@@ -60,6 +61,9 @@ function ManageSales() {
         
         if (storeData && (storeData.shop_name || storeData.store_name)) {
           setStoreName(storeData.shop_name || storeData.store_name);
+        }
+        if (storeData && storeData.store_address) {
+          setStoreAddress(storeData.store_address);
         }
       }
     } catch (error) {
@@ -372,6 +376,11 @@ function ManageSales() {
               >
                 <div className="text-center mb-4">
                   <h2 className="font-bold text-base mb-1">{storeName}</h2>
+                  {storeAddress && (
+                    <p className="text-[11px] mb-2 font-medium break-words leading-tight px-2 whitespace-pre-wrap">
+                      {storeAddress}
+                    </p>
+                  )}
                   <p className="text-[10px] text-slate-400 uppercase tracking-widest">Receipt</p>
                 </div>
                 

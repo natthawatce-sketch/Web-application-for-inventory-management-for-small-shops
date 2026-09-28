@@ -99,6 +99,7 @@ async function setupDatabase() {
         `CREATE TABLE IF NOT EXISTS store_settings (
             id INT PRIMARY KEY DEFAULT 1,
             store_name VARCHAR(255) DEFAULT 'ร้านค้าของฉัน',
+            store_address TEXT DEFAULT NULL,
             promptpay_qr VARCHAR(255) DEFAULT NULL,
             updated_by INT DEFAULT NULL,
             updated_at DATETIME DEFAULT NULL,
@@ -140,6 +141,7 @@ async function setupDatabase() {
     try { await connection.query("ALTER TABLE store_settings ADD COLUMN updated_by INT DEFAULT NULL"); console.log("Added updated_by to store_settings"); } catch(e) {}
     try { await connection.query("ALTER TABLE store_settings ADD COLUMN updated_at DATETIME DEFAULT NULL"); console.log("Added updated_at to store_settings"); } catch(e) {}
     try { await connection.query("ALTER TABLE store_settings ADD CONSTRAINT fk_store_updated_by FOREIGN KEY (updated_by) REFERENCES users(user_id) ON DELETE SET NULL"); console.log("Added FK constraint for updated_by"); } catch(e) {}
+    try { await connection.query("ALTER TABLE store_settings ADD COLUMN store_address TEXT DEFAULT NULL"); console.log("Added store_address to store_settings"); } catch(e) {}
     console.log("Database setup complete!");
     await connection.end();
 }
